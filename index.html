@@ -881,16 +881,35 @@
         const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
         let textoCompleto = '';
+        const codigosAprovadosPdf = new Set();
+
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.0 });
+          const midX = viewport.width / 2;
           const content = await page.getTextContent();
-          // Ordena itens por posição Y (de cima para baixo) e X (esquerda para direita)
-          const items = content.items.sort((a, b) => {
+
+          // Separa coluna esquerda e coluna direita do layout de 2 colunas do Histórico CAGR
+          const colEsq = [];
+          const colDir = [];
+          content.items.forEach(it => {
+            if (!it.str || !it.str.trim()) return;
+            if (it.transform[4] < midX - 15) colEsq.push(it);
+            else colDir.push(it);
+          });
+
+          const ordenarPorLinha = (arr) => arr.sort((a, b) => {
             const dy = Math.abs(b.transform[5] - a.transform[5]);
-            if (dy > 4) return b.transform[5] - a.transform[5];
+            if (dy > 5) return b.transform[5] - a.transform[5];
             return a.transform[4] - b.transform[4];
           });
-          textoCompleto += items.map(it => it.str).join(' ') + '\n';
+
+          const textoPagina = [
+            ordenarPorLinha(colEsq).map(it => it.str).join(' '),
+            ordenarPorLinha(colDir).map(it => it.str).join(' ')
+          ].join('\n');
+
+          textoCompleto += textoPagina + '\n';
         }
 
         // Detecta curso e currículo do cabeçalho do Histórico UFSC (ex: "Curso: 602 ... Currículo: 2016/1")
@@ -907,23 +926,21 @@
           }
         }
 
-        // Extrai cada ocorrência de disciplina no histórico e verifica aprovação UFSC:
-        // Regra UFSC: Frequência Suficiente (FS) + (Nota >= 6.0 ou Conceito V / R / Dispensa)
-        const regexDisc = /([A-Z]{3}\d{4})\b([\s\S]{1,140}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
-        const codigosAprovadosPdf = new Set();
+        // Extrai cada ocorrência de disciplina já com colunas separadas (sem misturar linha esquerda/direita)
+        const regexDisc = /([A-Z]{3}\d{4})\b([\s\S]{1,160}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
         let match;
 
         while ((match = regexDisc.exec(textoCompleto)) !== null) {
           const codigo = match[1];
           const trecho = match[2];
 
-          // Ignora explicitamente Frequência Insuficiente (FI) ou Incompleto (!)
+          // Ignora explicitamente Frequência Insuficiente (FI)
           if (/\bFI\b/.test(trecho)) continue;
 
           const temFS = /\bFS\b/.test(trecho);
           const temValidacao = /\b(V|R|Rv)\b/.test(trecho);
 
-          // Busca notas decimais (ex: 6.5, 10.0, 8.0) no trecho da disciplina
+          // Busca notas decimais (ex: 6.5, 10.0, 9.5, 7.0)
           const notasMatch = trecho.match(/\b(10(?:[.,]0)?|[0-9][.,]\d)\b/g);
           let notaAprovada = false;
           if (notasMatch) {
