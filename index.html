@@ -6,6 +6,12 @@
   <title>Fluxograma — Planejador Universitário Inteligente</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; }
@@ -82,7 +88,12 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <input type="file" id="inputHistoricoPdf" accept=".pdf,application/pdf" class="hidden" onchange="processarHistoricoPdf(event)" />
+        <button onclick="acionarImportacaoHistorico()" class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition">
+          <span>📄 Importar Histórico (PDF)</span>
+          <span class="text-[10px] uppercase tracking-wider bg-indigo-600 text-white px-1.5 py-0.5 rounded">PRO</span>
+        </button>
         <button onclick="abrirPlanejador()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-sm hover:bg-indigo-700 transition">
           <span>🗓️ Planejar até a Formatura</span>
           <span class="text-[10px] uppercase tracking-wider bg-indigo-500 px-1.5 py-0.5 rounded">PRO</span>
@@ -153,8 +164,8 @@
               <span class="text-xs text-slate-500">/ 6 meses</span>
             </div>
             <ul class="text-xs text-slate-600 space-y-2 mb-6">
+              <li>✓ Importação automática do Histórico Escolar (PDF)</li>
               <li>✓ Simulador Multi-Semestres até a formatura</li>
-              <li>✓ Validação automática de mínimo/máximo de aulas</li>
               <li>✓ Sincronização automática PC + Celular</li>
             </ul>
           </div>
@@ -415,12 +426,18 @@
 
       const { data } = await supabaseClient
         .from('perfis')
-        .select('plano')
+        .select('plano, plano_expira_em')
         .eq('id', usuarioAtual.id)
         .single();
 
       if (data?.plano) {
-        planoUsuario = data.plano;
+        // Verifica automaticamente se a assinatura venceu
+        if (data.plano !== 'gratis' && data.plano_expira_em && new Date() > new Date(data.plano_expira_em)) {
+          planoUsuario = 'gratis';
+          await supabaseClient.from('perfis').update({ plano: 'gratis' }).eq('id', usuarioAtual.id);
+        } else {
+          planoUsuario = data.plano;
+        }
         atualizarBadgePlano();
       }
     }
@@ -829,11 +846,126 @@
     async function assinarPlano(plano) {
       planoUsuario = plano;
       atualizarBadgePlano();
+
+      const expira = new Date();
+      expira.setMonth(expira.getMonth() + (plano === 'pro_anual' ? 12 : 6));
+
       if (usuarioAtual) {
-        await supabaseClient.from('perfis').update({ plano }).eq('id', usuarioAtual.id);
+        await supabaseClient.from('perfis').update({
+          plano,
+          plano_expira_em: expira.toISOString()
+        }).eq('id', usuarioAtual.id);
       }
       fecharModal('modalPlanos');
       abrirPlanejador();
+    }
+
+    // =========================================================================
+    // IMPORTAÇÃO AUTOMÁTICA DO HISTÓRICO ESCOLAR UFSC/CAGR (PRO)
+    // =========================================================================
+    function acionarImportacaoHistorico() {
+      if (planoUsuario === 'gratis') {
+        abrirModalPlanos();
+        return;
+      }
+      document.getElementById('inputHistoricoPdf').value = '';
+      document.getElementById('inputHistoricoPdf').click();
+    }
+
+    async function processarHistoricoPdf(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+        let textoCompleto = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          // Ordena itens por posição Y (de cima para baixo) e X (esquerda para direita)
+          const items = content.items.sort((a, b) => {
+            const dy = Math.abs(b.transform[5] - a.transform[5]);
+            if (dy > 4) return b.transform[5] - a.transform[5];
+            return a.transform[4] - b.transform[4];
+          });
+          textoCompleto += items.map(it => it.str).join(' ') + '\n';
+        }
+
+        // Detecta curso e currículo do cabeçalho do Histórico UFSC (ex: "Curso: 602 ... Currículo: 2016/1")
+        const matchCurso = textoCompleto.match(/Curso:\s*(\d{3})/i);
+        const matchCurr = textoCompleto.match(/Curr[íi]culo:\s*(\d{4})\/?(\d)/i);
+
+        if (matchCurso && matchCurr) {
+          const codCursoPdf = matchCurso[1];
+          const currPdf = `${matchCurr[1]}${matchCurr[2]}`;
+          const alvo = catalogoCurriculos.find(c => c.curso_codigo === codCursoPdf && c.curriculo === currPdf);
+          if (alvo && (!cursoAtual || cursoAtual.id !== alvo.id)) {
+            popularFaculdades(alvo.id);
+            await new Promise(r => setTimeout(r, 150));
+          }
+        }
+
+        // Extrai cada ocorrência de disciplina no histórico e verifica aprovação UFSC:
+        // Regra UFSC: Frequência Suficiente (FS) + (Nota >= 6.0 ou Conceito V / R / Dispensa)
+        const regexDisc = /([A-Z]{3}\d{4})\b([\s\S]{1,140}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
+        const codigosAprovadosPdf = new Set();
+        let match;
+
+        while ((match = regexDisc.exec(textoCompleto)) !== null) {
+          const codigo = match[1];
+          const trecho = match[2];
+
+          // Ignora explicitamente Frequência Insuficiente (FI) ou Incompleto (!)
+          if (/\bFI\b/.test(trecho)) continue;
+
+          const temFS = /\bFS\b/.test(trecho);
+          const temValidacao = /\b(V|R|Rv)\b/.test(trecho);
+
+          // Busca notas decimais (ex: 6.5, 10.0, 8.0) no trecho da disciplina
+          const notasMatch = trecho.match(/\b(10(?:[.,]0)?|[0-9][.,]\d)\b/g);
+          let notaAprovada = false;
+          if (notasMatch) {
+            notaAprovada = notasMatch.some(n => parseFloat(n.replace(',', '.')) >= 6.0);
+          }
+
+          if ((temFS && notaAprovada) || temValidacao) {
+            codigosAprovadosPdf.add(codigo);
+          }
+        }
+
+        if (!cursoAtual) {
+          alert('Selecione um curso antes de importar o histórico.');
+          return;
+        }
+
+        const obrigatoriasCurso = new Set((cursoAtual.disciplinas || []).map(d => d.codigo));
+        let novasMarcadas = 0;
+
+        codigosAprovadosPdf.forEach(cod => {
+          if (obrigatoriasCurso.has(cod) && !aprovadas.has(cod)) {
+            aprovadas.add(cod);
+            novasMarcadas++;
+          }
+        });
+
+        // Caso especial do Estágio Obrigatório na UFSC (EMB5046 equivale a EMB5443 + EMB5444)
+        if (codigosAprovadosPdf.has('EMB5443') && codigosAprovadosPdf.has('EMB5444') && obrigatoriasCurso.has('EMB5046')) {
+          if (!aprovadas.has('EMB5046')) {
+            aprovadas.add('EMB5046');
+            novasMarcadas++;
+          }
+        }
+
+        await salvarProgresso();
+        renderizarGrade();
+
+        alert(`✅ Histórico lido com sucesso!\n\n• ${codigosAprovadosPdf.size} disciplinas aprovadas identificadas no PDF.\n• ${novasMarcadas} novas obrigatórias marcadas na sua grade.`);
+      } catch (err) {
+        console.error(err);
+        alert('Não foi possível ler este PDF. Verifique se é o PDF original do Histórico Escolar emitido pelo CAGR/UFSC.');
+      }
     }
 
     inicializar();
