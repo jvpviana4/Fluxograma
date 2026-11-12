@@ -218,22 +218,28 @@
       <button onclick="fecharModal('modalAuth')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 font-bold" aria-label="Fechar">✕</button>
       <h3 class="text-lg font-bold text-slate-900">Sua Conta no Fluxograma</h3>
       <p class="text-xs text-slate-500 mt-1">Salve seu progresso na nuvem para acessar do celular ou computador.</p>
+
+      <!-- Abas Entrar vs Criar Conta -->
+      <div class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-lg mt-4 text-xs font-semibold">
+        <button type="button" id="tabLogin" onclick="alternarAbaAuth('login')" class="py-1.5 rounded-md bg-white text-slate-900 shadow-sm transition">Já tenho conta</button>
+        <button type="button" id="tabSignup" onclick="alternarAbaAuth('signup')" class="py-1.5 rounded-md text-slate-600 hover:text-slate-900 transition">Criar conta</button>
+      </div>
+
       <form onsubmit="fazerLoginOuCadastro(event)" class="mt-4 space-y-3">
         <input id="authEmail" type="email" required placeholder="Seu melhor e-mail" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2" />
         <input id="authPass" type="password" required minlength="6" placeholder="Senha (mínimo 6 caracteres)" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2" />
 
-        <!-- Consentimento LGPD -->
-        <label class="flex items-start gap-2 text-[11px] text-slate-600 pt-1 cursor-pointer select-none">
+        <!-- Consentimento LGPD (visível apenas ao Criar Conta) -->
+        <label id="boxLgpd" class="hidden flex items-start gap-2 text-[11px] text-slate-600 pt-1 cursor-pointer select-none">
           <input id="aceiteLgpd" type="checkbox" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
           <span>
             Concordo com os <button type="button" onclick="abrirModalPrivacidade()" class="text-indigo-600 underline font-medium">Termos de Uso e Política de Privacidade (LGPD)</button> para armazenamento do meu histórico acadêmico.
           </span>
         </label>
 
-        <div class="flex gap-2 pt-1">
-          <button type="submit" onclick="modoAuth='login'" class="flex-1 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">Entrar</button>
-          <button type="submit" onclick="modoAuth='signup'" class="flex-1 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50">Criar Conta</button>
-        </div>
+        <button id="btnSubmitAuth" type="submit" class="w-full py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">
+          Entrar na minha conta
+        </button>
       </form>
 
       <!-- Área da Conta Logada + Direitos LGPD (Exportar / Excluir) -->
@@ -322,16 +328,19 @@
     // SELETORES EM CASCATA: FACULDADE -> CURSO -> CURRÍCULO (COM AUTO-RESTAURAÇÃO)
     // =========================================================================
     async function buscarUltimoCurriculoUsuario() {
-      if (!usuarioAtual) return localStorage.getItem('fx_ultimo_curriculo');
+      if (usuarioAtual) {
+        const { data } = await supabaseClient
+          .from('progresso_alunos')
+          .select('curriculo_id, aprovadas, semestres_planejados, updated_at')
+          .eq('user_id', usuarioAtual.id)
+          .order('updated_at', { ascending: false });
 
-      const { data } = await supabaseClient
-        .from('progresso_alunos')
-        .select('curriculo_id')
-        .eq('user_id', usuarioAtual.id)
-        .order('updated_at', { ascending: false })
-        .limit(1);
-
-      if (data && data.length > 0) return data[0].curriculo_id;
+        if (data && data.length > 0) {
+          // Prioriza o currículo onde o aluno efetivamente marcou matérias ou planejou semestres
+          const comProgresso = data.find(r => (r.aprovadas && r.aprovadas.length > 0) || (r.semestres_planejados && r.semestres_planejados.length > 0));
+          return (comProgresso || data[0]).curriculo_id;
+        }
+      }
       return localStorage.getItem('fx_ultimo_curriculo');
     }
 
@@ -686,9 +695,32 @@
     // =========================================================================
     function abrirModalPlanos() { document.getElementById('modalPlanos').classList.remove('hidden'); }
     function abrirModalUpload() { document.getElementById('modalUpload').classList.remove('hidden'); }
-    function abrirModalAuth() { document.getElementById('modalAuth').classList.remove('hidden'); }
+    function abrirModalAuth() {
+      alternarAbaAuth('login');
+      document.getElementById('modalAuth').classList.remove('hidden');
+    }
     function abrirModalPrivacidade() { document.getElementById('modalPrivacidade').classList.remove('hidden'); }
     function fecharModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+    function alternarAbaAuth(modo) {
+      modoAuth = modo;
+      const tabLogin = document.getElementById('tabLogin');
+      const tabSignup = document.getElementById('tabSignup');
+      const boxLgpd = document.getElementById('boxLgpd');
+      const btnSubmit = document.getElementById('btnSubmitAuth');
+
+      if (modo === 'signup') {
+        tabSignup.className = 'py-1.5 rounded-md bg-white text-slate-900 shadow-sm transition';
+        tabLogin.className = 'py-1.5 rounded-md text-slate-600 hover:text-slate-900 transition';
+        boxLgpd.classList.remove('hidden');
+        btnSubmit.textContent = 'Criar minha conta';
+      } else {
+        tabLogin.className = 'py-1.5 rounded-md bg-white text-slate-900 shadow-sm transition';
+        tabSignup.className = 'py-1.5 rounded-md text-slate-600 hover:text-slate-900 transition';
+        boxLgpd.classList.add('hidden');
+        btnSubmit.textContent = 'Entrar na minha conta';
+      }
+    }
 
     async function fazerLoginOuCadastro(e) {
       e.preventDefault();
