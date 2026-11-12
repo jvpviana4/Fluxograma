@@ -314,29 +314,48 @@
       }
 
       catalogoCurriculos = data;
-      popularFaculdades();
+      const ultimoId = await buscarUltimoCurriculoUsuario();
+      popularFaculdades(ultimoId);
     }
 
     // =========================================================================
-    // SELETORES EM CASCATA: FACULDADE -> CURSO -> CURRÍCULO
+    // SELETORES EM CASCATA: FACULDADE -> CURSO -> CURRÍCULO (COM AUTO-RESTAURAÇÃO)
     // =========================================================================
-    function popularFaculdades() {
+    async function buscarUltimoCurriculoUsuario() {
+      if (!usuarioAtual) return localStorage.getItem('fx_ultimo_curriculo');
+
+      const { data } = await supabaseClient
+        .from('progresso_alunos')
+        .select('curriculo_id')
+        .eq('user_id', usuarioAtual.id)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (data && data.length > 0) return data[0].curriculo_id;
+      return localStorage.getItem('fx_ultimo_curriculo');
+    }
+
+    function popularFaculdades(curriculoAlvoId = null) {
       const selectFac = document.getElementById('selectFaculdade');
-      // Agrupa por Universidade + Campus (ex: "UFSC — Campus Joinville")
       const faculdades = [...new Set(catalogoCurriculos.map(c => `${c.universidade} — ${c.campus}`))];
 
       selectFac.innerHTML = faculdades.map(f => `<option value="${f}">${f}</option>`).join('');
-      selectFac.addEventListener('change', popularCursos);
-      popularCursos();
+
+      const alvo = curriculoAlvoId ? catalogoCurriculos.find(c => c.id === curriculoAlvoId) : null;
+      if (alvo) {
+        selectFac.value = `${alvo.universidade} — ${alvo.campus}`;
+      }
+
+      selectFac.onchange = () => popularCursos();
+      popularCursos(alvo);
     }
 
-    function popularCursos() {
+    function popularCursos(alvo = null) {
       const facSelecionada = document.getElementById('selectFaculdade').value;
       const selectCurso = document.getElementById('selectCurso');
 
       const daFaculdade = catalogoCurriculos.filter(c => `${c.universidade} — ${c.campus}` === facSelecionada);
 
-      // Cursos únicos (código + nome)
       const mapaCursos = new Map();
       daFaculdade.forEach(c => {
         const chave = `${c.curso_codigo} - ${c.curso_nome}`;
@@ -347,18 +366,22 @@
         .map(([label, codigo]) => `<option value="${codigo}">${label}</option>`)
         .join('');
 
-      selectCurso.onchange = popularCurriculos;
-      popularCurriculos();
+      if (alvo && selectCurso.querySelector(`option[value="${alvo.curso_codigo}"]`)) {
+        selectCurso.value = alvo.curso_codigo;
+      }
+
+      selectCurso.onchange = () => popularCurriculos();
+      popularCurriculos(alvo);
     }
 
-    function popularCurriculos() {
+    function popularCurriculos(alvo = null) {
       const facSelecionada = document.getElementById('selectFaculdade').value;
       const codigoCurso = document.getElementById('selectCurso').value;
       const selectCurr = document.getElementById('selectCurriculo');
 
       const versoes = catalogoCurriculos
         .filter(c => `${c.universidade} — ${c.campus}` === facSelecionada && c.curso_codigo === codigoCurso)
-        .sort((a, b) => b.curriculo.localeCompare(a.curriculo)); // Mais recente primeiro (ex: 20251 antes de 20161)
+        .sort((a, b) => b.curriculo.localeCompare(a.curriculo));
 
       selectCurr.innerHTML = versoes.map(v => {
         const formatado = v.curriculo.length === 5 ? `${v.curriculo.slice(0,4)}.${v.curriculo.slice(4)}` : v.curriculo;
@@ -366,7 +389,11 @@
       }).join('');
 
       selectCurr.onchange = (e) => selecionarCurso(e.target.value);
-      if (versoes.length > 0) {
+
+      if (alvo && versoes.some(v => v.id === alvo.id)) {
+        selectCurr.value = alvo.id;
+        selecionarCurso(alvo.id);
+      } else if (versoes.length > 0) {
         selecionarCurso(versoes[0].id);
       }
     }
@@ -403,6 +430,7 @@
     async function selecionarCurso(id) {
       cursoAtual = catalogoCurriculos.find(c => c.id === id);
       if (!cursoAtual) return;
+      localStorage.setItem('fx_ultimo_curriculo', id);
 
       aprovadas = new Set();
       semestresPlanejados = [];
@@ -688,9 +716,20 @@
 
       usuarioAtual = res.data.user;
       await carregarPerfilUsuario();
-      await salvarProgresso();
+
+      if (modoAuth === 'login') {
+        const salvoNuvemId = await buscarUltimoCurriculoUsuario();
+        if (salvoNuvemId && catalogoCurriculos.some(c => c.id === salvoNuvemId)) {
+          popularFaculdades(salvoNuvemId);
+        } else {
+          await selecionarCurso(cursoAtual.id);
+        }
+      } else {
+        await salvarProgresso();
+      }
+
       fecharModal('modalAuth');
-      alert(modoAuth === 'signup' ? 'Conta criada com sucesso!' : 'Login realizado com sucesso!');
+      alert(modoAuth === 'signup' ? 'Conta criada com sucesso!' : 'Login realizado! Seu curso e progresso foram carregados.');
     }
 
     async function sairConta() {
