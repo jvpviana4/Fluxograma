@@ -721,14 +721,7 @@
       renderizarGrade();
     }
 
-     else if (ehPro) {
-        aviso.innerHTML = `<span class="text-slate-600">Histórico da <strong>${cursoAtual.universidade}</strong> em breve. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold text-indigo-600 hover:text-indigo-800">Envie um modelo (liberamos em até 1 dia útil)</button></span>`;
-        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-slate-700 text-sm font-semibold hover:bg-slate-100 transition';
-      } else {
-        aviso.innerHTML = `<span class="text-amber-700">Ainda não suportamos histórico da <strong>${cursoAtual.universidade}</strong>. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold hover:text-amber-900">Envie um modelo e liberamos em até 1 dia útil (+40% OFF)</button></span>`;
-        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition';
-      }
-    }
+
 
     function marcarFase(fase) {
       const daFase = cursoAtual.disciplinas.filter(d => d.fase === Number(fase));
@@ -742,14 +735,7 @@
       renderizarGrade();
     }
 
-     else if (ehPro) {
-        aviso.innerHTML = `<span class="text-slate-600">Histórico da <strong>${cursoAtual.universidade}</strong> em breve. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold text-indigo-600 hover:text-indigo-800">Envie um modelo (liberamos em até 1 dia útil)</button></span>`;
-        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-slate-700 text-sm font-semibold hover:bg-slate-100 transition';
-      } else {
-        aviso.innerHTML = `<span class="text-amber-700">Ainda não suportamos histórico da <strong>${cursoAtual.universidade}</strong>. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold hover:text-amber-900">Envie um modelo e liberamos em até 1 dia útil (+40% OFF)</button></span>`;
-        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition';
-      }
-    }
+
 
     // =========================================================================
     // PLANEJADOR MULTI-SEMESTRES ATÉ A FORMATURA (PRO)
