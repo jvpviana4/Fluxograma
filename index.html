@@ -90,11 +90,16 @@
 
       <div class="flex flex-wrap items-center gap-2.5">
         <input type="file" id="inputHistoricoPdf" accept=".pdf,application/pdf" class="hidden" onchange="processarHistoricoPdf(event)" />
-        <button onclick="acionarImportacaoHistorico()" class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition">
-          <span>📄 Importar Histórico (PDF)</span>
-          <span class="text-[10px] uppercase tracking-wider bg-indigo-600 text-white px-1.5 py-0.5 rounded">PRO</span>
-        </button>
-        <button onclick="abrirPlanejador()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-sm hover:bg-indigo-700 transition">
+        <div class="flex flex-col items-start sm:items-end">
+          <button id="btnImportarHistorico" onclick="acionarImportacaoHistorico()" class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition">
+            <span>📄 Importar Histórico (PDF)</span>
+            <span class="text-[10px] uppercase tracking-wider bg-indigo-600 text-white px-1.5 py-0.5 rounded">PRO</span>
+          </button>
+          <span id="avisoCompatibilidadePdf" class="text-[11px] text-slate-500 mt-1">
+            Leitura automática disponível para: <strong class="text-slate-700">UFSC (CAGR)</strong>
+          </span>
+        </div>
+        <button onclick="abrirPlanejador()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold shadow-sm hover:bg-indigo-700 transition self-start">
           <span>🗓️ Planejar até a Formatura</span>
           <span class="text-[10px] uppercase tracking-wider bg-indigo-500 px-1.5 py-0.5 rounded">PRO</span>
         </button>
@@ -164,7 +169,7 @@
               <span class="text-xs text-slate-500">/ 6 meses</span>
             </div>
             <ul class="text-xs text-slate-600 space-y-2 mb-6">
-              <li>✓ Importação automática do Histórico Escolar (PDF)</li>
+              <li>✓ Importação automática do Histórico PDF (UFSC)</li>
               <li>✓ Simulador Multi-Semestres até a formatura</li>
               <li>✓ Sincronização automática PC + Celular</li>
             </ul>
@@ -201,8 +206,8 @@
   <div id="modalUpload" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative">
       <button onclick="fecharModal('modalUpload')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 font-bold" aria-label="Fechar">✕</button>
-      <h3 class="text-lg font-bold text-slate-900">🎁 Ganhe 40% OFF enviando um currículo</h3>
-      <p class="text-xs text-slate-600 mt-1">Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial da grade curricular e libere o cupom <strong>PIONEIRO40</strong>.</p>
+      <h3 id="tituloModalUpload" class="text-lg font-bold text-slate-900">🎁 Ganhe 40% OFF enviando um currículo</h3>
+      <p id="descModalUpload" class="text-xs text-slate-600 mt-1">Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial da grade curricular e libere o cupom <strong>PIONEIRO40</strong>.</p>
       <form onsubmit="enviarCurriculoNovo(event)" class="mt-4 space-y-3">
         <div>
           <label class="block text-xs font-semibold text-slate-700 mb-1">Universidade / Sigla</label>
@@ -299,6 +304,9 @@
     let usuarioAtual = null;
     let planoUsuario = 'gratis';
     let modoAuth = 'login';
+
+    // Lista centralizada das instituições cujo PDF de Histórico Escolar já tem leitor integrado
+    const UNIVERSIDADES_HISTORICO_SUPORTADAS = ['UFSC'];
 
     // Traduz mensagens padrão de erro do Supabase Auth para Português
     function traduzirErroAuth(msg) {
@@ -482,7 +490,25 @@
         }
       }
 
+      atualizarAvisoHistorico();
       renderizarGrade();
+    }
+
+    function atualizarAvisoHistorico() {
+      const aviso = document.getElementById('avisoCompatibilidadePdf');
+      const btn = document.getElementById('btnImportarHistorico');
+      if (!aviso || !btn || !cursoAtual) return;
+
+      const suportada = UNIVERSIDADES_HISTORICO_SUPORTADAS.includes(cursoAtual.universidade);
+      const listaTxt = UNIVERSIDADES_HISTORICO_SUPORTADAS.join(', ');
+
+      if (suportada) {
+        aviso.innerHTML = `Disponível para: <strong class="text-slate-700">${listaTxt} (CAGR)</strong>`;
+        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition';
+      } else {
+        aviso.innerHTML = `<span class="text-amber-700">Ainda não suportamos histórico da <strong>${cursoAtual.universidade}</strong>. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold hover:text-amber-900">Envie um modelo e liberamos em até 1 dia útil</button></span>`;
+        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition';
+      }
     }
 
     async function salvarProgresso() {
@@ -606,7 +632,25 @@
       if (aprovadas.has(codigo)) aprovadas.delete(codigo);
       else aprovadas.add(codigo);
       salvarProgresso();
+      atualizarAvisoHistorico();
       renderizarGrade();
+    }
+
+    function atualizarAvisoHistorico() {
+      const aviso = document.getElementById('avisoCompatibilidadePdf');
+      const btn = document.getElementById('btnImportarHistorico');
+      if (!aviso || !btn || !cursoAtual) return;
+
+      const suportada = UNIVERSIDADES_HISTORICO_SUPORTADAS.includes(cursoAtual.universidade);
+      const listaTxt = UNIVERSIDADES_HISTORICO_SUPORTADAS.join(', ');
+
+      if (suportada) {
+        aviso.innerHTML = `Disponível para: <strong class="text-slate-700">${listaTxt} (CAGR)</strong>`;
+        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition';
+      } else {
+        aviso.innerHTML = `<span class="text-amber-700">Ainda não suportamos histórico da <strong>${cursoAtual.universidade}</strong>. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold hover:text-amber-900">Envie um modelo e liberamos em até 1 dia útil</button></span>`;
+        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition';
+      }
     }
 
     function marcarFase(fase) {
@@ -617,7 +661,25 @@
         else aprovadas.add(d.codigo);
       });
       salvarProgresso();
+      atualizarAvisoHistorico();
       renderizarGrade();
+    }
+
+    function atualizarAvisoHistorico() {
+      const aviso = document.getElementById('avisoCompatibilidadePdf');
+      const btn = document.getElementById('btnImportarHistorico');
+      if (!aviso || !btn || !cursoAtual) return;
+
+      const suportada = UNIVERSIDADES_HISTORICO_SUPORTADAS.includes(cursoAtual.universidade);
+      const listaTxt = UNIVERSIDADES_HISTORICO_SUPORTADAS.join(', ');
+
+      if (suportada) {
+        aviso.innerHTML = `Disponível para: <strong class="text-slate-700">${listaTxt} (CAGR)</strong>`;
+        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition';
+      } else {
+        aviso.innerHTML = `<span class="text-amber-700">Ainda não suportamos histórico da <strong>${cursoAtual.universidade}</strong>. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold hover:text-amber-900">Envie um modelo e liberamos em até 1 dia útil</button></span>`;
+        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition';
+      }
     }
 
     // =========================================================================
@@ -711,7 +773,13 @@
     // MODAIS, AUTENTICAÇÃO E DIREITOS LGPD
     // =========================================================================
     function abrirModalPlanos() { document.getElementById('modalPlanos').classList.remove('hidden'); }
-    function abrirModalUpload() { document.getElementById('modalUpload').classList.remove('hidden'); }
+    function abrirModalUpload() {
+      document.getElementById('tituloModalUpload').textContent = '🎁 Ganhe 40% OFF enviando um currículo';
+      document.getElementById('descModalUpload').innerHTML = 'Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial da grade curricular e libere o cupom <strong>PIONEIRO40</strong>.';
+      document.getElementById('upUniv').value = '';
+      document.getElementById('upCurso').value = '';
+      document.getElementById('modalUpload').classList.remove('hidden');
+    }
     function abrirModalAuth() {
       alternarAbaAuth('login');
       document.getElementById('modalAuth').classList.remove('hidden');
@@ -863,11 +931,28 @@
     // =========================================================================
     // IMPORTAÇÃO AUTOMÁTICA DO HISTÓRICO ESCOLAR UFSC/CAGR (PRO)
     // =========================================================================
+    function abrirModalEnvioHistorico() {
+      const modal = document.getElementById('modalUpload');
+      document.getElementById('tituloModalUpload').textContent = '📄 Enviar modelo de Histórico Escolar';
+      document.getElementById('descModalUpload').innerHTML = `Ainda não suportamos o histórico automático da <strong>${cursoAtual?.universidade || 'sua universidade'}</strong>. Envie o link de um PDF exemplar (pode ocultar seus dados pessoais) e nossa equipe libera a integração <strong>em até 1 dia útil</strong> + cupom <strong>PIONEIRO40</strong>!`;
+      if (cursoAtual) {
+        document.getElementById('upUniv').value = cursoAtual.universidade;
+        document.getElementById('upCurso').value = `Modelo de Histórico Escolar — ${cursoAtual.curso_nome}`;
+      }
+      modal.classList.remove('hidden');
+    }
+
     function acionarImportacaoHistorico() {
+      if (cursoAtual && !UNIVERSIDADES_HISTORICO_SUPORTADAS.includes(cursoAtual.universidade)) {
+        abrirModalEnvioHistorico();
+        return;
+      }
+
       if (planoUsuario === 'gratis') {
         abrirModalPlanos();
         return;
       }
+
       document.getElementById('inputHistoricoPdf').value = '';
       document.getElementById('inputHistoricoPdf').click();
     }
