@@ -124,7 +124,8 @@
           Aviso legal: Esta ferramenta não possui vínculo, parceria ou afiliação oficial com a UFSC, UDESC ou qualquer outra instituição de ensino. Os dados curriculares são públicos e o planejamento tem caráter exclusivamente auxiliar, não substituindo os registros e regras oficiais do CAGR/SIGA.
         </p>
       </div>
-      <div class="flex items-center gap-4 shrink-0">
+      <div class="flex flex-wrap items-center gap-4 shrink-0">
+        <button onclick="abrirModalFeedback()" class="hover:text-indigo-600 underline font-medium text-slate-600">🐞 Reportar problema</button>
         <button onclick="abrirModalPrivacidade()" class="hover:text-indigo-600 underline">Privacidade e Termos (LGPD)</button>
         <button onclick="abrirModalUpload()" class="hover:text-indigo-600 underline">Enviar Grade Curricular</button>
       </div>
@@ -165,6 +166,12 @@
         <p class="text-sm text-slate-500 mt-1">Pagamento único via Pix · Sem renovação automática escondida.</p>
       </div>
 
+      <!-- Banner de Status do Plano Atual (se já for Pro) -->
+      <div id="bannerPlanoAtual" class="hidden mb-4 px-4 py-3 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs flex flex-wrap items-center justify-between gap-2">
+        <span id="textoPlanoAtual" class="font-semibold">⭐ Você já possui o Fluxograma Pro ativo.</span>
+        <span id="validadePlanoAtual" class="text-[11px] text-indigo-700"></span>
+      </div>
+
       <!-- Banner de Desconto Ativo na Conta (Pioneiro 40% ou Cupom aplicado) -->
       <div id="bannerDescontoAtivo" class="hidden mb-5 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between">
         <span id="textoDescontoAtivo">🎉 Desconto exclusivo de 40% OFF aplicado à sua conta!</span>
@@ -187,7 +194,7 @@
               <li>✓ Sincronização na nuvem PC + Celular</li>
             </ul>
           </div>
-          <button onclick="assinarPlano('pro_semestral')" class="w-full py-2.5 rounded-lg border border-indigo-600 text-indigo-600 font-semibold text-sm hover:bg-indigo-50 transition">
+          <button id="btnAssinarSemestral" onclick="assinarPlano('pro_semestral')" class="w-full py-2.5 rounded-lg border border-indigo-600 text-indigo-600 font-semibold text-sm hover:bg-indigo-50 transition">
             Escolher Semestral
           </button>
         </div>
@@ -207,7 +214,7 @@
               <li>✓ Economia de 12% no ano letivo</li>
             </ul>
           </div>
-          <button onclick="assinarPlano('pro_anual')" class="w-full py-2.5 rounded-lg border border-indigo-600 text-indigo-600 font-semibold text-sm hover:bg-indigo-50 transition">
+          <button id="btnAssinarAnual" onclick="assinarPlano('pro_anual')" class="w-full py-2.5 rounded-lg border border-indigo-600 text-indigo-600 font-semibold text-sm hover:bg-indigo-50 transition">
             Escolher Anual
           </button>
         </div>
@@ -228,7 +235,7 @@
               <li>✓ Atualizações futuras incluídas</li>
             </ul>
           </div>
-          <button onclick="assinarPlano('pro_formatura')" class="w-full py-2.5 rounded-lg bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition">
+          <button id="btnAssinarFormatura" onclick="assinarPlano('pro_formatura')" class="w-full py-2.5 rounded-lg bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition">
             Liberar até a Formatura
           </button>
         </div>
@@ -309,9 +316,9 @@
     </div>
   </div>
 
-  <!-- Modal: Autenticação + LGPD -->
-  <div id="modalAuth" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 relative">
+  <!-- Modal: Autenticação + Seleção de Curso no Cadastro + LGPD -->
+  <div id="modalAuth" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative my-auto">
       <button onclick="fecharModal('modalAuth')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 font-bold" aria-label="Fechar">✕</button>
       <h3 class="text-lg font-bold text-slate-900">Sua Conta no Fluxograma</h3>
       <p class="text-xs text-slate-500 mt-1">Salve seu progresso na nuvem para acessar do celular ou computador.</p>
@@ -324,7 +331,23 @@
 
       <form onsubmit="fazerLoginOuCadastro(event)" class="mt-4 space-y-3">
         <input id="authEmail" type="email" required placeholder="Seu melhor e-mail" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2" />
-        <input id="authPass" type="password" required minlength="6" placeholder="Senha (mínimo 6 caracteres)" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2" />
+        <div>
+          <input id="authPass" type="password" required minlength="6" placeholder="Senha (mínimo 6 caracteres)" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2" />
+          <div id="boxEsqueciSenha" class="text-right mt-1">
+            <button type="button" onclick="solicitarRecuperacaoSenha()" class="text-[11px] text-indigo-600 hover:underline font-medium">Esqueci minha senha</button>
+          </div>
+        </div>
+
+        <!-- Escolha inicial de Faculdade, Curso e Currículo (visível apenas ao Criar Conta) -->
+        <div id="boxCursoCadastro" class="hidden rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
+          <p class="text-[11px] font-bold text-slate-700">🎓 Confirme seu curso e currículo inicial:</p>
+          <select id="cadFaculdade" aria-label="Faculdade no cadastro" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"></select>
+          <select id="cadCurso" aria-label="Curso no cadastro" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"></select>
+          <select id="cadCurriculo" aria-label="Currículo no cadastro" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800"></select>
+          <p class="text-[11px] text-slate-500 pt-0.5 leading-snug">
+            Não achou sua faculdade, curso ou currículo? Selecione a última opção acima (<strong>"Ainda não está na lista"</strong>) para enviar o PDF após criar a conta e ganhar <strong>40% OFF</strong>.
+          </p>
+        </div>
 
         <!-- Consentimento LGPD (visível apenas ao Criar Conta) -->
         <label id="boxLgpd" class="hidden flex items-start gap-2 text-[11px] text-slate-600 pt-1 cursor-pointer select-none">
@@ -342,14 +365,60 @@
       <!-- Área da Conta Logada + Direitos LGPD (Exportar / Excluir) -->
       <div id="authUserBox" class="hidden mt-4 pt-4 border-t border-slate-200 space-y-2.5 text-xs">
         <div class="flex items-center justify-between">
-          <span id="authUserEmail" class="font-semibold text-slate-700 truncate max-w-[200px]"></span>
-          <button onclick="sairConta()" class="text-slate-600 font-semibold hover:underline">Sair</button>
+          <span id="authUserEmail" class="font-semibold text-slate-700 truncate max-w-[220px]"></span>
+          <button onclick="sairConta()" class="text-slate-600 font-semibold hover:underline">Sair da conta</button>
         </div>
         <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
           <button onclick="exportarMeusDados()" class="text-indigo-600 hover:underline font-medium">📥 Baixar meus dados (JSON)</button>
           <button onclick="excluirMinhaConta()" class="text-rose-600 hover:underline font-medium">🗑️ Excluir conta e dados</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal: Redefinir Nova Senha (após clicar no link do e-mail) -->
+  <div id="modalNovaSenha" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 relative">
+      <button onclick="fecharModal('modalNovaSenha')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 font-bold" aria-label="Fechar">✕</button>
+      <h3 class="text-lg font-bold text-slate-900">🔑 Criar nova senha</h3>
+      <p class="text-xs text-slate-500 mt-1">Digite abaixo a nova senha para acessar sua conta.</p>
+      <form onsubmit="salvarNovaSenha(event)" class="mt-4 space-y-3">
+        <input id="novaSenhaInput" type="password" required minlength="6" placeholder="Nova senha (mínimo 6 caracteres)" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2" />
+        <button type="submit" class="w-full py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">
+          Salvar Nova Senha
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Reportar Problema / Feedback -->
+  <div id="modalFeedback" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative">
+      <button onclick="fecharModal('modalFeedback')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 font-bold" aria-label="Fechar">✕</button>
+      <h3 class="text-lg font-bold text-slate-900">🐞 Reportar problema ou sugestão</h3>
+      <p class="text-xs text-slate-500 mt-1">Encontrou algum pré-requisito incorreto, erro no histórico ou tem uma ideia? Conte para nós.</p>
+      <form onsubmit="enviarFeedback(event)" class="mt-4 space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Assunto</label>
+          <select id="fbTipo" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white">
+            <option value="Erro na grade / pré-requisito">Erro na grade / pré-requisito</option>
+            <option value="Problema no Histórico PDF">Problema na leitura do Histórico PDF</option>
+            <option value="Bug visual ou de conta">Bug visual ou de conta</option>
+            <option value="Sugestão de melhoria">Sugestão de melhoria</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Seu e-mail (opcional, para retorno)</label>
+          <input id="fbEmail" type="email" placeholder="seu@email.com" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Descrição</label>
+          <textarea id="fbMensagem" rows="4" required placeholder="Descreva o que aconteceu..." class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2"></textarea>
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition">
+          Enviar Reporte
+        </button>
+      </form>
     </div>
   </div>
 
@@ -384,6 +453,7 @@
     let semestresPlanejados = [];
     let usuarioAtual = null;
     let planoUsuario = 'gratis';
+    let planoExpiraEm = null;
     let descontoPioneiroDisponivel = false;
     let descontoCupomPct = 0;
     let modoAuth = 'login';
@@ -403,6 +473,12 @@
     }
 
     async function inicializar() {
+      supabaseClient.auth.onAuthStateChange((event) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          document.getElementById('modalNovaSenha').classList.remove('hidden');
+        }
+      });
+
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (session?.user) {
         usuarioAtual = session.user;
@@ -524,9 +600,11 @@
       if (data) {
         descontoPioneiroDisponivel = Boolean(data.desconto_pioneiro_disponivel && !data.desconto_pioneiro_usado);
         if (data.plano) {
+          planoExpiraEm = data.plano_expira_em || null;
           // Verifica automaticamente se a assinatura venceu (pro_formatura não expira)
           if (data.plano !== 'gratis' && data.plano !== 'pro_formatura' && data.plano_expira_em && new Date() > new Date(data.plano_expira_em)) {
             planoUsuario = 'gratis';
+            planoExpiraEm = null;
             await supabaseClient.from('perfis').update({ plano: 'gratis' }).eq('id', usuarioAtual.id);
           } else {
             planoUsuario = data.plano;
@@ -830,6 +908,21 @@
       semestresPlanejados.push({ nome: `Semestre +${idx}`, materias: [] });
       salvarProgresso();
       renderizarPlanejador();
+      const container = document.getElementById('conteudoPlanejador');
+      if (container) container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' });
+    }
+
+    function removerSemestre(semIdx) {
+      if (semestresPlanejados.length <= 1) {
+        semestresPlanejados[0].materias = [];
+      } else {
+        semestresPlanejados.splice(semIdx, 1);
+        semestresPlanejados.forEach((s, i) => {
+          s.nome = i === 0 ? 'Próximo Semestre (1)' : `Semestre +${i + 1}`;
+        });
+      }
+      salvarProgresso();
+      renderizarPlanejador();
     }
 
     function toggleMateriaSemestre(semIdx, codigo) {
@@ -858,7 +951,8 @@
         });
 
         sem.materias.forEach(cod => acumulado.add(cod));
-        if (!semestreConclusao && acumulado.size >= disciplinas.length) {
+        const concluiuAqui = !semestreConclusao && acumulado.size >= disciplinas.length;
+        if (concluiuAqui) {
           semestreConclusao = sem.nome;
         }
 
@@ -879,11 +973,22 @@
           `;
         }).join('');
 
+        const bordaCard = concluiuAqui ? 'border-2 border-emerald-500 ring-2 ring-emerald-100' : 'border border-slate-200';
+        const tagFormatura = concluiuAqui
+          ? `<span class="inline-block mb-2 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">🎓 Semestre de Formatura</span>`
+          : '';
+
         return `
-          <div class="min-w-[290px] max-w-[290px] bg-white rounded-xl border border-slate-200 p-4 flex flex-col max-h-[68vh]">
-            <div class="flex items-center justify-between pb-2 mb-3 border-b border-slate-100">
-              <h4 class="font-bold text-sm text-slate-900">${sem.nome}</h4>
-              ${alertaAulas}
+          <div class="min-w-[290px] max-w-[290px] bg-white rounded-xl ${bordaCard} p-4 flex flex-col max-h-[68vh]">
+            ${tagFormatura}
+            <div class="flex items-center justify-between pb-2 mb-3 border-b border-slate-100 gap-2">
+              <div>
+                <h4 class="font-bold text-sm text-slate-900">${sem.nome}</h4>
+                ${alertaAulas}
+              </div>
+              <button type="button" onclick="removerSemestre(${idx})" title="${semestresPlanejados.length > 1 ? 'Excluir semestre' : 'Limpar semestre'}" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition text-xs">
+                🗑️
+              </button>
             </div>
             <div class="space-y-2 overflow-y-auto flex-1 pr-1 custom-scroll">
               ${listaHtml || '<p class="text-xs text-emerald-600 font-semibold py-4 text-center">🎉 Todas as matérias concluídas!</p>'}
@@ -893,7 +998,7 @@
       }).join('');
 
       document.getElementById('previsaoFormatura').textContent = semestreConclusao
-        ? `Conclui em: ${semestreConclusao}`
+        ? `🎓 Formatura em: ${semestreConclusao}`
         : `Faltam ${disciplinas.length - acumulado.size} matérias`;
     }
 
@@ -904,12 +1009,26 @@
       return 'R$ ' + valor.toFixed(2).replace('.', ',');
     }
 
+    const HIERARQUIA_PLANOS = { gratis: 0, pro_semestral: 1, pro_anual: 2, pro_formatura: 3 };
+
     function atualizarPrecosModal() {
       const pct = Math.max(descontoPioneiroDisponivel ? 40 : 0, descontoCupomPct);
       const fator = (100 - pct) / 100;
       const banner = document.getElementById('bannerDescontoAtivo');
+      const bannerAtual = document.getElementById('bannerPlanoAtual');
 
-      if (pct > 0) {
+      if (planoUsuario !== 'gratis') {
+        bannerAtual.classList.remove('hidden');
+        const nomes = { pro_semestral: 'Passe Semestral', pro_anual: 'Passe Anual', pro_formatura: 'Até a Formatura (Vitalício)' };
+        document.getElementById('textoPlanoAtual').textContent = `⭐ Seu plano atual: ${nomes[planoUsuario] || 'Fluxograma Pro'}`;
+        document.getElementById('validadePlanoAtual').textContent = planoUsuario === 'pro_formatura'
+          ? 'Acesso vitalício liberado'
+          : (planoExpiraEm ? `Válido até ${new Date(planoExpiraEm).toLocaleDateString('pt-BR')}` : '');
+      } else {
+        bannerAtual.classList.add('hidden');
+      }
+
+      if (pct > 0 && planoUsuario !== 'pro_formatura') {
         banner.classList.remove('hidden');
         document.getElementById('textoDescontoAtivo').textContent = pct === 100
           ? '🎉 Cupom Beta 100% OFF aplicado! Escolha qualquer plano abaixo para ativar grátis.'
@@ -921,6 +1040,31 @@
       document.getElementById('precoSemestral').textContent = formatarBRL(4 * fator);
       document.getElementById('precoAnual').textContent = formatarBRL(7 * fator);
       document.getElementById('precoFormatura').textContent = formatarBRL(10 * fator);
+
+      // Bloqueia botões do plano já ativo ou inferiores para não gerar QR Code Pix à toa
+      const nivelAtual = HIERARQUIA_PLANOS[planoUsuario] || 0;
+      const configsBotoes = [
+        { id: 'btnAssinarSemestral', plano: 'pro_semestral', textoLivre: 'Escolher Semestral', primario: false },
+        { id: 'btnAssinarAnual', plano: 'pro_anual', textoLivre: 'Escolher Anual', primario: false },
+        { id: 'btnAssinarFormatura', plano: 'pro_formatura', textoLivre: 'Liberar até a Formatura', primario: true },
+      ];
+
+      configsBotoes.forEach(cfg => {
+        const btn = document.getElementById(cfg.id);
+        if (!btn) return;
+        const nivelBotao = HIERARQUIA_PLANOS[cfg.plano];
+        if (nivelAtual >= nivelBotao) {
+          btn.disabled = true;
+          btn.textContent = planoUsuario === cfg.plano ? '✓ Seu Plano Atual' : '✓ Incluído no seu Plano';
+          btn.className = 'w-full py-2.5 rounded-lg bg-slate-100 text-slate-500 font-semibold text-sm cursor-not-allowed';
+        } else {
+          btn.disabled = false;
+          btn.textContent = nivelAtual > 0 ? `Fazer Upgrade (${cfg.textoLivre.replace('Escolher ', '').replace('Liberar ', '')})` : cfg.textoLivre;
+          btn.className = cfg.primario
+            ? 'w-full py-2.5 rounded-lg bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition'
+            : 'w-full py-2.5 rounded-lg border border-indigo-600 text-indigo-600 font-semibold text-sm hover:bg-indigo-50 transition';
+        }
+      });
     }
 
     function abrirModalPlanos() {
@@ -954,24 +1098,98 @@
     function abrirModalPrivacidade() { document.getElementById('modalPrivacidade').classList.remove('hidden'); }
     function fecharModal(id) { document.getElementById(id).classList.add('hidden'); }
 
+    function popularSeletoresCadastro() {
+      const cadFac = document.getElementById('cadFaculdade');
+      const cadCurso = document.getElementById('cadCurso');
+      const cadCurr = document.getElementById('cadCurriculo');
+      if (!cadFac || catalogoCurriculos.length === 0) return;
+
+      const faculdades = [...new Set(catalogoCurriculos.map(c => `${c.universidade} — ${c.campus}`))];
+      cadFac.innerHTML = faculdades.map(f => `<option value="${f}">${f}</option>`).join('');
+      if (cursoAtual) cadFac.value = `${cursoAtual.universidade} — ${cursoAtual.campus}`;
+
+      const atualizarCursosCad = (alvo = null) => {
+        const daFac = catalogoCurriculos.filter(c => `${c.universidade} — ${c.campus}` === cadFac.value);
+        const mapa = new Map();
+        daFac.forEach(c => {
+          const label = `${c.curso_codigo} - ${c.curso_nome}`;
+          if (!mapa.has(label)) mapa.set(label, c.curso_codigo);
+        });
+        cadCurso.innerHTML = Array.from(mapa.entries()).map(([l, cod]) => `<option value="${cod}">${l}</option>`).join('');
+        if (alvo && cadCurso.querySelector(`option[value="${alvo.curso_codigo}"]`)) cadCurso.value = alvo.curso_codigo;
+        atualizarCurriculosCad(alvo);
+      };
+
+      const atualizarCurriculosCad = (alvo = null) => {
+        const versoes = catalogoCurriculos
+          .filter(c => `${c.universidade} — ${c.campus}` === cadFac.value && c.curso_codigo === cadCurso.value)
+          .sort((a, b) => b.curriculo.localeCompare(a.curriculo));
+        cadCurr.innerHTML = versoes.map(v => {
+          const fmt = v.curriculo.length === 5 ? `${v.curriculo.slice(0,4)}.${v.curriculo.slice(4)}` : v.curriculo;
+          return `<option value="${v.id}">Currículo ${fmt}</option>`;
+        }).join('') + `<option value="__nao_encontrado__">➕ Meu curso/currículo ainda não está na lista</option>`;
+        if (alvo && versoes.some(v => v.id === alvo.id)) cadCurr.value = alvo.id;
+      };
+
+      cadFac.onchange = () => atualizarCursosCad();
+      cadCurso.onchange = () => atualizarCurriculosCad();
+      atualizarCursosCad(cursoAtual);
+    }
+
     function alternarAbaAuth(modo) {
       modoAuth = modo;
       const tabLogin = document.getElementById('tabLogin');
       const tabSignup = document.getElementById('tabSignup');
       const boxLgpd = document.getElementById('boxLgpd');
+      const boxCursoCad = document.getElementById('boxCursoCadastro');
+      const boxEsqueci = document.getElementById('boxEsqueciSenha');
       const btnSubmit = document.getElementById('btnSubmitAuth');
 
       if (modo === 'signup') {
         tabSignup.className = 'py-1.5 rounded-md bg-white text-slate-900 shadow-sm transition';
         tabLogin.className = 'py-1.5 rounded-md text-slate-600 hover:text-slate-900 transition';
         boxLgpd.classList.remove('hidden');
+        boxCursoCad.classList.remove('hidden');
+        boxEsqueci.classList.add('hidden');
+        popularSeletoresCadastro();
         btnSubmit.textContent = 'Criar minha conta';
       } else {
         tabLogin.className = 'py-1.5 rounded-md bg-white text-slate-900 shadow-sm transition';
         tabSignup.className = 'py-1.5 rounded-md text-slate-600 hover:text-slate-900 transition';
         boxLgpd.classList.add('hidden');
+        boxCursoCad.classList.add('hidden');
+        boxEsqueci.classList.remove('hidden');
         btnSubmit.textContent = 'Entrar na minha conta';
       }
+    }
+
+    async function solicitarRecuperacaoSenha() {
+      const email = document.getElementById('authEmail').value.trim();
+      if (!email) {
+        alert('Digite seu e-mail no campo acima primeiro e depois clique em "Esqueci minha senha".');
+        document.getElementById('authEmail').focus();
+        return;
+      }
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + window.location.pathname
+      });
+      if (error) {
+        alert('Erro ao enviar e-mail de recuperação: ' + traduzirErroAuth(error.message));
+        return;
+      }
+      alert(`📧 Enviamos um link de redefinição de senha para ${email}. Verifique sua caixa de entrada e spam.`);
+    }
+
+    async function salvarNovaSenha(e) {
+      e.preventDefault();
+      const novaSenha = document.getElementById('novaSenhaInput').value;
+      const { error } = await supabaseClient.auth.updateUser({ password: novaSenha });
+      if (error) {
+        alert('Erro ao atualizar senha: ' + traduzirErroAuth(error.message));
+        return;
+      }
+      fecharModal('modalNovaSenha');
+      alert('✅ Senha atualizada com sucesso! Você já está conectado.');
     }
 
     async function fazerLoginOuCadastro(e) {
@@ -979,6 +1197,7 @@
       const email = document.getElementById('authEmail').value;
       const password = document.getElementById('authPass').value;
       const aceitouLgpd = document.getElementById('aceiteLgpd').checked;
+      const curriculoEscolhidoId = document.getElementById('cadCurriculo')?.value;
 
       if (modoAuth === 'signup' && !aceitouLgpd) {
         alert('Por favor, marque a caixa concordando com os Termos de Uso e Política de Privacidade (LGPD) para criar sua conta.');
@@ -1009,23 +1228,71 @@
           await selecionarCurso(cursoAtual.id);
         }
       } else {
+        if (curriculoEscolhidoId && curriculoEscolhidoId !== '__nao_encontrado__' && curriculoEscolhidoId !== cursoAtual?.id) {
+          popularFaculdades(curriculoEscolhidoId);
+          await new Promise(r => setTimeout(r, 150));
+        }
         await salvarProgresso();
       }
 
       fecharModal('modalAuth');
-      alert(modoAuth === 'signup' ? 'Conta criada com sucesso!' : 'Login realizado! Seu curso e progresso foram carregados.');
+      if (modoAuth === 'signup' && curriculoEscolhidoId === '__nao_encontrado__') {
+        alert('Conta criada com sucesso! Envie agora o link do PDF oficial do seu currículo para adicionarmos em até 1 dia útil e liberarmos 40% OFF.');
+        abrirModalUpload();
+      } else {
+        alert(modoAuth === 'signup' ? 'Conta criada com sucesso!' : 'Login realizado! Seu curso e progresso foram carregados.');
+      }
     }
 
     async function sairConta() {
       await supabaseClient.auth.signOut();
       usuarioAtual = null;
       planoUsuario = 'gratis';
+      planoExpiraEm = null;
       descontoPioneiroDisponivel = false;
       descontoCupomPct = 0;
+
+      // Limpa progresso local da sessão anterior para não misturar contas no mesmo dispositivo
+      aprovadas = new Set();
+      semestresPlanejados = [];
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('fx_'))
+        .forEach(k => localStorage.removeItem(k));
+
       document.getElementById('btnAuth').textContent = 'Entrar / Salvar na Nuvem';
       document.getElementById('authUserBox').classList.add('hidden');
       atualizarBadgePlano();
+      renderizarGrade();
       fecharModal('modalAuth');
+    }
+
+    function abrirModalFeedback() {
+      document.getElementById('fbEmail').value = usuarioAtual?.email || '';
+      document.getElementById('fbMensagem').value = '';
+      document.getElementById('modalFeedback').classList.remove('hidden');
+    }
+
+    async function enviarFeedback(e) {
+      e.preventDefault();
+      const curriculoResumo = cursoAtual
+        ? `${cursoAtual.universidade} - ${cursoAtual.curso_codigo} (${cursoAtual.curso_nome}) [${cursoAtual.curriculo}]`
+        : 'Não selecionado';
+
+      const { error } = await supabaseClient.from('feedbacks').insert({
+        user_id: usuarioAtual?.id || null,
+        email_contato: document.getElementById('fbEmail').value.trim() || usuarioAtual?.email || null,
+        tipo: document.getElementById('fbTipo').value,
+        curriculo_atual: curriculoResumo,
+        mensagem: document.getElementById('fbMensagem').value.trim()
+      });
+
+      if (error) {
+        alert('Erro ao enviar reporte: ' + error.message);
+        return;
+      }
+
+      fecharModal('modalFeedback');
+      alert('✅ Obrigado! Seu reporte foi enviado diretamente para nossa equipe.');
     }
 
     // Portabilidade de Dados (Art. 18, V da LGPD)
@@ -1155,6 +1422,11 @@
         alert('Crie ou entre na sua conta gratuita para salvar sua assinatura na nuvem.');
         fecharModal('modalPlanos');
         abrirModalAuth();
+        return;
+      }
+
+      if ((HIERARQUIA_PLANOS[planoUsuario] || 0) >= (HIERARQUIA_PLANOS[plano] || 0)) {
+        alert('Você já possui este plano (ou um plano superior) ativo na sua conta.');
         return;
       }
 
