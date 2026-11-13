@@ -149,65 +149,104 @@
     </div>
   </div>
 
-  <!-- Modal: Planos Semestral / Anual -->
-  <div id="modalPlanos" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative">
+  <!-- Modal: Planos Semestral / Anual / Até a Formatura -->
+  <div id="modalPlanos" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-6 relative my-auto">
       <button onclick="fecharModal('modalPlanos')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 font-bold" aria-label="Fechar">✕</button>
-      <div class="text-center mb-6">
+      <div class="text-center mb-5">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Fluxograma Pro</span>
         <h3 class="text-2xl font-extrabold text-slate-900 mt-2">Planeje sua formatura sem surpresas</h3>
-        <p class="text-sm text-slate-500 mt-1">Libere a simulação multi-semestres em cascata, previsão de conclusão e sincronização na nuvem.</p>
+        <p class="text-sm text-slate-500 mt-1">Pagamento único via Pix · Sem renovação automática escondida.</p>
       </div>
 
-      <div class="grid sm:grid-cols-2 gap-4">
+      <!-- Banner de Desconto Ativo na Conta (Pioneiro 40% ou Cupom aplicado) -->
+      <div id="bannerDescontoAtivo" class="hidden mb-5 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between">
+        <span id="textoDescontoAtivo">🎉 Desconto exclusivo de 40% OFF aplicado à sua conta!</span>
+        <span class="uppercase tracking-wider text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded">Uso único</span>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4">
+        <!-- Semestral -->
         <div class="border border-slate-200 rounded-xl p-5 flex flex-col justify-between">
           <div>
             <h4 class="font-bold text-slate-900">Passe Semestral</h4>
             <p class="text-xs text-slate-500 mt-1">Ideal para ajuste de matrícula</p>
             <div class="my-4">
-              <span class="text-3xl font-extrabold text-slate-900">R$ 14,90</span>
-              <span class="text-xs text-slate-500">/ 6 meses</span>
+              <span id="precoSemestral" class="text-3xl font-extrabold text-slate-900">R$ 8,00</span>
+              <span class="text-xs text-slate-500 block mt-0.5">acesso por 6 meses</span>
             </div>
             <ul class="text-xs text-slate-600 space-y-2 mb-6">
-              <li>✓ Importação automática do Histórico PDF (UFSC)</li>
-              <li>✓ Simulador Multi-Semestres até a formatura</li>
-              <li>✓ Sincronização automática PC + Celular</li>
+              <li>✓ Leitura automática do Histórico PDF (UFSC)</li>
+              <li>✓ Simulador Multi-Semestres em cascata</li>
+              <li>✓ Sincronização na nuvem PC + Celular</li>
             </ul>
           </div>
           <button onclick="assinarPlano('pro_semestral')" class="w-full py-2.5 rounded-lg border border-indigo-600 text-indigo-600 font-semibold text-sm hover:bg-indigo-50 transition">
-            Assinar Semestral
+            Escolher Semestral
           </button>
         </div>
 
-        <div class="border-2 border-indigo-600 rounded-xl p-5 flex flex-col justify-between relative bg-indigo-50/20">
-          <span class="absolute -top-3 right-4 bg-indigo-600 text-white text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full">Mais escolhido</span>
+        <!-- Anual -->
+        <div class="border border-slate-200 rounded-xl p-5 flex flex-col justify-between">
           <div>
             <h4 class="font-bold text-slate-900">Passe Anual</h4>
-            <p class="text-xs text-slate-500 mt-1">Economize 33% no ano letivo</p>
+            <p class="text-xs text-slate-500 mt-1">Dois semestres completos</p>
             <div class="my-4">
-              <span class="text-3xl font-extrabold text-slate-900">R$ 19,90</span>
-              <span class="text-xs text-slate-500">/ 12 meses</span>
+              <span id="precoAnual" class="text-3xl font-extrabold text-slate-900">R$ 12,00</span>
+              <span class="text-xs text-slate-500 block mt-0.5">acesso por 12 meses</span>
             </div>
             <ul class="text-xs text-slate-600 space-y-2 mb-6">
               <li>✓ Tudo do Passe Semestral</li>
-              <li>✓ Controle de horas optativas, extensão e complementares</li>
-              <li>✓ Aceita Cupom Pioneiro (-40% OFF)</li>
+              <li>✓ Previsão de formatura e travas de CH</li>
+              <li>✓ Economia de 25% no ano letivo</li>
             </ul>
           </div>
-          <button onclick="assinarPlano('pro_anual')" class="w-full py-2.5 rounded-lg bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition">
-            Assinar Anual
+          <button onclick="assinarPlano('pro_anual')" class="w-full py-2.5 rounded-lg border border-indigo-600 text-indigo-600 font-semibold text-sm hover:bg-indigo-50 transition">
+            Escolher Anual
+          </button>
+        </div>
+
+        <!-- Até a Formatura -->
+        <div class="border-2 border-indigo-600 rounded-xl p-5 flex flex-col justify-between relative bg-indigo-50/25 shadow-sm">
+          <span class="absolute -top-3 right-4 bg-indigo-600 text-white text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full">Melhor custo-benefício</span>
+          <div>
+            <h4 class="font-bold text-slate-900">Até a Formatura</h4>
+            <p class="text-xs text-slate-500 mt-1">Pague uma vez, use até colar grau</p>
+            <div class="my-4">
+              <span id="precoFormatura" class="text-3xl font-extrabold text-slate-900">R$ 15,00</span>
+              <span class="text-xs text-slate-500 block mt-0.5">acesso vitalício ao curso</span>
+            </div>
+            <ul class="text-xs text-slate-600 space-y-2 mb-6">
+              <li>✓ Tudo dos planos anteriores sem expirar</li>
+              <li>✓ Válido para todos os currículos do seu curso</li>
+              <li>✓ Atualizações futuras incluídas</li>
+            </ul>
+          </div>
+          <button onclick="assinarPlano('pro_formatura')" class="w-full py-2.5 rounded-lg bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition">
+            Liberar até a Formatura
+          </button>
+        </div>
+      </div>
+
+      <!-- Campo de Cupom Promocional (ex: BETA100) -->
+      <div class="mt-5 pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+        <p class="text-xs text-slate-500">Tem um cupom de convidado ou quer ganhar 40% OFF? <button type="button" onclick="fecharModal('modalPlanos'); abrirModalUpload();" class="text-indigo-600 underline font-medium">Envie um PDF inédito</button>.</p>
+        <div class="flex items-center gap-2">
+          <input id="inputCupom" type="text" placeholder="Código do cupom" class="text-xs uppercase border border-slate-300 rounded-lg px-3 py-2 w-36 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <button type="button" onclick="resgatarCupom()" class="text-xs font-semibold px-3.5 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-900 transition">
+            Aplicar
           </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Modal: Envio de Currículo Novo (Cupom Pioneiro) -->
+  <!-- Modal: Envio de Currículo ou Modelo de Histórico (Desconto Pioneiro 40% vinculado à conta) -->
   <div id="modalUpload" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative">
       <button onclick="fecharModal('modalUpload')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 font-bold" aria-label="Fechar">✕</button>
       <h3 id="tituloModalUpload" class="text-lg font-bold text-slate-900">🎁 Ganhe 40% OFF enviando um currículo</h3>
-      <p id="descModalUpload" class="text-xs text-slate-600 mt-1">Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial da grade curricular e libere o cupom <strong>PIONEIRO40</strong>.</p>
+      <p id="descModalUpload" class="text-xs text-slate-600 mt-1">Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial e assim que validarmos (em até 1 dia útil), <strong>40% de desconto</strong> será ativado automaticamente na sua conta.</p>
       <form onsubmit="enviarCurriculoNovo(event)" class="mt-4 space-y-3">
         <div>
           <label class="block text-xs font-semibold text-slate-700 mb-1">Universidade / Sigla</label>
@@ -221,8 +260,8 @@
           <label class="block text-xs font-semibold text-slate-700 mb-1">Link do PDF (Google Drive / Site da IES)</label>
           <input id="upLink" type="url" required placeholder="https://..." class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2" />
         </div>
-        <button type="submit" class="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition">
-          Enviar Currículo e Resgatar Cupom
+        <button id="btnSubmitUpload" type="submit" class="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition">
+          Enviar Currículo para Validação
         </button>
       </form>
     </div>
@@ -303,6 +342,8 @@
     let semestresPlanejados = [];
     let usuarioAtual = null;
     let planoUsuario = 'gratis';
+    let descontoPioneiroDisponivel = false;
+    let descontoCupomPct = 0;
     let modoAuth = 'login';
 
     // Lista centralizada das instituições cujo PDF de Histórico Escolar já tem leitor integrado
@@ -434,17 +475,20 @@
 
       const { data } = await supabaseClient
         .from('perfis')
-        .select('plano, plano_expira_em')
+        .select('plano, plano_expira_em, desconto_pioneiro_disponivel, desconto_pioneiro_usado')
         .eq('id', usuarioAtual.id)
         .single();
 
-      if (data?.plano) {
-        // Verifica automaticamente se a assinatura venceu
-        if (data.plano !== 'gratis' && data.plano_expira_em && new Date() > new Date(data.plano_expira_em)) {
-          planoUsuario = 'gratis';
-          await supabaseClient.from('perfis').update({ plano: 'gratis' }).eq('id', usuarioAtual.id);
-        } else {
-          planoUsuario = data.plano;
+      if (data) {
+        descontoPioneiroDisponivel = Boolean(data.desconto_pioneiro_disponivel && !data.desconto_pioneiro_usado);
+        if (data.plano) {
+          // Verifica automaticamente se a assinatura venceu (pro_formatura não expira)
+          if (data.plano !== 'gratis' && data.plano !== 'pro_formatura' && data.plano_expira_em && new Date() > new Date(data.plano_expira_em)) {
+            planoUsuario = 'gratis';
+            await supabaseClient.from('perfis').update({ plano: 'gratis' }).eq('id', usuarioAtual.id);
+          } else {
+            planoUsuario = data.plano;
+          }
         }
         atualizarBadgePlano();
       }
@@ -453,10 +497,10 @@
     function atualizarBadgePlano() {
       const btn = document.getElementById('btnPlano');
       if (planoUsuario !== 'gratis') {
-        btn.textContent = '⭐ Plano Pro Ativo';
+        btn.textContent = planoUsuario === 'pro_formatura' ? '🎓 Pro · Até a Formatura' : '⭐ Plano Pro Ativo';
         btn.className = 'text-xs font-semibold px-3 py-2 rounded-lg bg-emerald-600 text-white';
       } else {
-        btn.textContent = 'Plano Grátis · Fazer Upgrade';
+        btn.textContent = descontoPioneiroDisponivel ? '🎁 40% OFF Ativo · Fazer Upgrade' : 'Plano Grátis · Fazer Upgrade';
         btn.className = 'text-xs font-semibold px-3 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition';
       }
     }
@@ -772,10 +816,43 @@
     // =========================================================================
     // MODAIS, AUTENTICAÇÃO E DIREITOS LGPD
     // =========================================================================
-    function abrirModalPlanos() { document.getElementById('modalPlanos').classList.remove('hidden'); }
+    function formatarBRL(valor) {
+      return 'R$ ' + valor.toFixed(2).replace('.', ',');
+    }
+
+    function atualizarPrecosModal() {
+      const pct = Math.max(descontoPioneiroDisponivel ? 40 : 0, descontoCupomPct);
+      const fator = (100 - pct) / 100;
+      const banner = document.getElementById('bannerDescontoAtivo');
+
+      if (pct > 0) {
+        banner.classList.remove('hidden');
+        document.getElementById('textoDescontoAtivo').textContent = pct === 100
+          ? '🎉 Cupom Beta 100% OFF aplicado! Escolha qualquer plano abaixo para ativar grátis.'
+          : `🎉 Desconto Pioneiro de ${pct}% OFF ativo na sua conta (uso único)!`;
+      } else {
+        banner.classList.add('hidden');
+      }
+
+      document.getElementById('precoSemestral').textContent = formatarBRL(8 * fator);
+      document.getElementById('precoAnual').textContent = formatarBRL(12 * fator);
+      document.getElementById('precoFormatura').textContent = formatarBRL(15 * fator);
+    }
+
+    function abrirModalPlanos() {
+      atualizarPrecosModal();
+      document.getElementById('modalPlanos').classList.remove('hidden');
+    }
+
     function abrirModalUpload() {
+      if (!usuarioAtual) {
+        alert('Entre ou crie sua conta gratuita primeiro para vincular o desconto de 40% OFF ao seu perfil.');
+        abrirModalAuth();
+        return;
+      }
       document.getElementById('tituloModalUpload').textContent = '🎁 Ganhe 40% OFF enviando um currículo';
-      document.getElementById('descModalUpload').innerHTML = 'Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial da grade curricular e libere o cupom <strong>PIONEIRO40</strong>.';
+      document.getElementById('descModalUpload').innerHTML = 'Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial e assim que validarmos (em até 1 dia útil), <strong>40% de desconto</strong> será ativado automaticamente na sua conta.';
+      document.getElementById('btnSubmitUpload').textContent = 'Enviar Currículo para Validação';
       document.getElementById('upUniv').value = '';
       document.getElementById('upCurso').value = '';
       document.getElementById('modalUpload').classList.remove('hidden');
@@ -853,6 +930,8 @@
       await supabaseClient.auth.signOut();
       usuarioAtual = null;
       planoUsuario = 'gratis';
+      descontoPioneiroDisponivel = false;
+      descontoCupomPct = 0;
       document.getElementById('btnAuth').textContent = 'Entrar / Salvar na Nuvem';
       document.getElementById('authUserBox').classList.add('hidden');
       atualizarBadgePlano();
@@ -896,11 +975,18 @@
 
     async function enviarCurriculoNovo(e) {
       e.preventDefault();
+      if (!usuarioAtual) {
+        alert('Faça login antes de enviar o PDF para que o desconto fique vinculado à sua conta.');
+        abrirModalAuth();
+        return;
+      }
+
       const { error } = await supabaseClient.from('envios_curriculos').insert({
-        user_id: usuarioAtual?.id || null,
+        user_id: usuarioAtual.id,
         universidade: document.getElementById('upUniv').value,
         curso: document.getElementById('upCurso').value,
-        arquivo_url: document.getElementById('upLink').value
+        arquivo_url: document.getElementById('upLink').value,
+        status: 'pendente'
       });
 
       if (error) {
@@ -908,22 +994,69 @@
         return;
       }
       fecharModal('modalUpload');
-      alert('🎉 Currículo recebido! Use o cupom PIONEIRO40 para 40% de desconto na assinatura.');
+      alert('✅ PDF recebido! Nossa equipe vai validar em até 1 dia útil e liberar automaticamente 40% OFF exclusivo na sua conta.');
+    }
+
+    async function resgatarCupom() {
+      const codigo = document.getElementById('inputCupom').value.trim();
+      if (!codigo) return;
+      if (!usuarioAtual) {
+        alert('Crie ou entre na sua conta gratuita antes de aplicar um cupom.');
+        fecharModal('modalPlanos');
+        abrirModalAuth();
+        return;
+      }
+
+      const { data, error } = await supabaseClient.rpc('aplicar_cupom_usuario', { p_codigo: codigo });
+      if (error || !data?.ok) {
+        alert(data?.erro || 'Não foi possível validar o cupom.');
+        return;
+      }
+
+      descontoCupomPct = data.desconto_pct;
+      atualizarPrecosModal();
+
+      if (descontoCupomPct === 100) {
+        await assinarPlano('pro_formatura');
+        alert('🎉 Cupom BETA100 ativado! Seu acesso Pro até a formatura já está liberado.');
+      } else {
+        alert(`✅ Cupom ${data.codigo} aplicado (${data.desconto_pct}% OFF)!`);
+      }
     }
 
     async function assinarPlano(plano) {
+      if (!usuarioAtual) {
+        alert('Crie ou entre na sua conta gratuita para salvar sua assinatura na nuvem.');
+        fecharModal('modalPlanos');
+        abrirModalAuth();
+        return;
+      }
+
       planoUsuario = plano;
+      const usouPioneiro = descontoPioneiroDisponivel;
+      if (usouPioneiro) {
+        descontoPioneiroDisponivel = false;
+      }
       atualizarBadgePlano();
 
-      const expira = new Date();
-      expira.setMonth(expira.getMonth() + (plano === 'pro_anual' ? 12 : 6));
-
-      if (usuarioAtual) {
-        await supabaseClient.from('perfis').update({
-          plano,
-          plano_expira_em: expira.toISOString()
-        }).eq('id', usuarioAtual.id);
+      let expiraIso = null;
+      if (plano !== 'pro_formatura') {
+        const expira = new Date();
+        expira.setMonth(expira.getMonth() + (plano === 'pro_anual' ? 12 : 6));
+        expiraIso = expira.toISOString();
       }
+
+      const updatePayload = {
+        plano,
+        plano_expira_em: expiraIso
+      };
+      if (usouPioneiro) {
+        updatePayload.desconto_pioneiro_disponivel = false;
+        updatePayload.desconto_pioneiro_usado = true;
+      }
+
+      await supabaseClient.from('perfis').update(updatePayload).eq('id', usuarioAtual.id);
+
       fecharModal('modalPlanos');
       abrirPlanejador();
     }
@@ -932,9 +1065,15 @@
     // IMPORTAÇÃO AUTOMÁTICA DO HISTÓRICO ESCOLAR UFSC/CAGR (PRO)
     // =========================================================================
     function abrirModalEnvioHistorico() {
+      if (!usuarioAtual) {
+        alert('Entre ou crie sua conta gratuita primeiro para enviar o modelo e receber 40% OFF direto no seu perfil.');
+        abrirModalAuth();
+        return;
+      }
       const modal = document.getElementById('modalUpload');
       document.getElementById('tituloModalUpload').textContent = '📄 Enviar modelo de Histórico Escolar';
-      document.getElementById('descModalUpload').innerHTML = `Ainda não suportamos o histórico automático da <strong>${cursoAtual?.universidade || 'sua universidade'}</strong>. Envie o link de um PDF exemplar (pode ocultar seus dados pessoais) e nossa equipe libera a integração <strong>em até 1 dia útil</strong> + cupom <strong>PIONEIRO40</strong>!`;
+      document.getElementById('descModalUpload').innerHTML = `Ainda não suportamos o histórico automático da <strong>${cursoAtual?.universidade || 'sua universidade'}</strong>. Envie o link de um PDF exemplar (pode ocultar seus dados pessoais) e liberamos a integração <strong>em até 1 dia útil</strong> + <strong>40% OFF</strong> direto na sua conta!`;
+      document.getElementById('btnSubmitUpload').textContent = 'Enviar Histórico para Validação';
       if (cursoAtual) {
         document.getElementById('upUniv').value = cursoAtual.universidade;
         document.getElementById('upCurso').value = `Modelo de Histórico Escolar — ${cursoAtual.curso_nome}`;
