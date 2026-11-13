@@ -289,6 +289,13 @@
           <label class="block text-xs font-semibold text-slate-700 mb-1">Link do PDF (Google Drive / Site da IES)</label>
           <input id="upLink" type="url" required placeholder="https://..." class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2" />
         </div>
+        <div class="rounded-lg bg-slate-50 border border-slate-200 p-2.5 text-[11px] text-slate-600 space-y-2">
+          <p>⏱️ Prazo de integração: <strong>até 1 dia útil</strong>. Depois disso, basta entrar novamente no site para utilizar.</p>
+          <label class="flex items-center gap-2 cursor-pointer select-none font-medium text-slate-700">
+            <input id="upAvisarEmail" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+            <span>Quero ser avisado por e-mail quando estiver liberado</span>
+          </label>
+        </div>
         <button id="btnSubmitUpload" type="submit" class="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition">
           Enviar Currículo para Validação
         </button>
@@ -532,6 +539,7 @@
         btn.textContent = descontoPioneiroDisponivel ? '🎁 40% OFF Ativo · Fazer Upgrade' : 'Plano Grátis · Fazer Upgrade';
         btn.className = 'text-xs font-semibold px-3 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition';
       }
+      atualizarAvisoHistorico();
     }
 
     async function selecionarCurso(id) {
@@ -574,12 +582,16 @@
 
       const suportada = UNIVERSIDADES_HISTORICO_SUPORTADAS.includes(cursoAtual.universidade);
       const listaTxt = UNIVERSIDADES_HISTORICO_SUPORTADAS.join(', ');
+      const ehPro = planoUsuario !== 'gratis';
 
       if (suportada) {
         aviso.innerHTML = `Disponível para: <strong class="text-slate-700">${listaTxt} (CAGR)</strong>`;
         btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition';
+      } else if (ehPro) {
+        aviso.innerHTML = `<span class="text-slate-600">Histórico da <strong>${cursoAtual.universidade}</strong> em breve. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold text-indigo-600 hover:text-indigo-800">Envie um modelo (liberamos em até 1 dia útil)</button></span>`;
+        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-slate-700 text-sm font-semibold hover:bg-slate-100 transition';
       } else {
-        aviso.innerHTML = `<span class="text-amber-700">Ainda não suportamos histórico da <strong>${cursoAtual.universidade}</strong>. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold hover:text-amber-900">Envie um modelo e liberamos em até 1 dia útil</button></span>`;
+        aviso.innerHTML = `<span class="text-amber-700">Ainda não suportamos histórico da <strong>${cursoAtual.universidade}</strong>. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold hover:text-amber-900">Envie um modelo e liberamos em até 1 dia útil (+40% OFF)</button></span>`;
         btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition';
       }
     }
@@ -709,19 +721,11 @@
       renderizarGrade();
     }
 
-    function atualizarAvisoHistorico() {
-      const aviso = document.getElementById('avisoCompatibilidadePdf');
-      const btn = document.getElementById('btnImportarHistorico');
-      if (!aviso || !btn || !cursoAtual) return;
-
-      const suportada = UNIVERSIDADES_HISTORICO_SUPORTADAS.includes(cursoAtual.universidade);
-      const listaTxt = UNIVERSIDADES_HISTORICO_SUPORTADAS.join(', ');
-
-      if (suportada) {
-        aviso.innerHTML = `Disponível para: <strong class="text-slate-700">${listaTxt} (CAGR)</strong>`;
-        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition';
+     else if (ehPro) {
+        aviso.innerHTML = `<span class="text-slate-600">Histórico da <strong>${cursoAtual.universidade}</strong> em breve. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold text-indigo-600 hover:text-indigo-800">Envie um modelo (liberamos em até 1 dia útil)</button></span>`;
+        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-slate-700 text-sm font-semibold hover:bg-slate-100 transition';
       } else {
-        aviso.innerHTML = `<span class="text-amber-700">Ainda não suportamos histórico da <strong>${cursoAtual.universidade}</strong>. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold hover:text-amber-900">Envie um modelo e liberamos em até 1 dia útil</button></span>`;
+        aviso.innerHTML = `<span class="text-amber-700">Ainda não suportamos histórico da <strong>${cursoAtual.universidade}</strong>. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold hover:text-amber-900">Envie um modelo e liberamos em até 1 dia útil (+40% OFF)</button></span>`;
         btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition';
       }
     }
@@ -738,19 +742,11 @@
       renderizarGrade();
     }
 
-    function atualizarAvisoHistorico() {
-      const aviso = document.getElementById('avisoCompatibilidadePdf');
-      const btn = document.getElementById('btnImportarHistorico');
-      if (!aviso || !btn || !cursoAtual) return;
-
-      const suportada = UNIVERSIDADES_HISTORICO_SUPORTADAS.includes(cursoAtual.universidade);
-      const listaTxt = UNIVERSIDADES_HISTORICO_SUPORTADAS.join(', ');
-
-      if (suportada) {
-        aviso.innerHTML = `Disponível para: <strong class="text-slate-700">${listaTxt} (CAGR)</strong>`;
-        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition';
+     else if (ehPro) {
+        aviso.innerHTML = `<span class="text-slate-600">Histórico da <strong>${cursoAtual.universidade}</strong> em breve. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold text-indigo-600 hover:text-indigo-800">Envie um modelo (liberamos em até 1 dia útil)</button></span>`;
+        btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-slate-700 text-sm font-semibold hover:bg-slate-100 transition';
       } else {
-        aviso.innerHTML = `<span class="text-amber-700">Ainda não suportamos histórico da <strong>${cursoAtual.universidade}</strong>. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold hover:text-amber-900">Envie um modelo e liberamos em até 1 dia útil</button></span>`;
+        aviso.innerHTML = `<span class="text-amber-700">Ainda não suportamos histórico da <strong>${cursoAtual.universidade}</strong>. <button type="button" onclick="abrirModalEnvioHistorico()" class="underline font-semibold hover:text-amber-900">Envie um modelo e liberamos em até 1 dia útil (+40% OFF)</button></span>`;
         btn.className = 'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition';
       }
     }
@@ -875,15 +871,21 @@
 
     function abrirModalUpload() {
       if (!usuarioAtual) {
-        alert('Entre ou crie sua conta gratuita primeiro para vincular o desconto de 40% OFF ao seu perfil.');
+        alert('Entre ou crie sua conta gratuita primeiro para enviar um PDF e acompanhar a liberação.');
         abrirModalAuth();
         return;
       }
-      document.getElementById('tituloModalUpload').textContent = '🎁 Ganhe 40% OFF enviando um currículo';
-      document.getElementById('descModalUpload').innerHTML = 'Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial e assim que validarmos (em até 1 dia útil), <strong>40% de desconto</strong> será ativado automaticamente na sua conta.';
+      const ehPro = planoUsuario !== 'gratis';
+      document.getElementById('tituloModalUpload').textContent = ehPro
+        ? '📚 Sugerir novo currículo ao catálogo'
+        : '🎁 Ganhe 40% OFF enviando um currículo';
+      document.getElementById('descModalUpload').innerHTML = ehPro
+        ? 'Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial da grade curricular e nossa equipe adiciona ao sistema <strong>em até 1 dia útil</strong>.'
+        : 'Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial e assim que validarmos (em até 1 dia útil), <strong>40% de desconto</strong> será ativado automaticamente na sua conta.';
       document.getElementById('btnSubmitUpload').textContent = 'Enviar Currículo para Validação';
       document.getElementById('upUniv').value = '';
       document.getElementById('upCurso').value = '';
+      document.getElementById('upAvisarEmail').checked = false;
       document.getElementById('modalUpload').classList.remove('hidden');
     }
     function abrirModalAuth() {
@@ -1005,16 +1007,18 @@
     async function enviarCurriculoNovo(e) {
       e.preventDefault();
       if (!usuarioAtual) {
-        alert('Faça login antes de enviar o PDF para que o desconto fique vinculado à sua conta.');
+        alert('Faça login antes de enviar o PDF.');
         abrirModalAuth();
         return;
       }
 
+      const avisarEmail = document.getElementById('upAvisarEmail').checked;
       const { error } = await supabaseClient.from('envios_curriculos').insert({
         user_id: usuarioAtual.id,
         universidade: document.getElementById('upUniv').value,
         curso: document.getElementById('upCurso').value,
         arquivo_url: document.getElementById('upLink').value,
+        avisar_email: avisarEmail,
         status: 'pendente'
       });
 
@@ -1023,7 +1027,13 @@
         return;
       }
       fecharModal('modalUpload');
-      alert('✅ PDF recebido! Nossa equipe vai validar em até 1 dia útil e liberar automaticamente 40% OFF exclusivo na sua conta.');
+      const ehPro = planoUsuario !== 'gratis';
+      const msgAviso = avisarEmail
+        ? 'Vamos te avisar por e-mail assim que estiver liberado!'
+        : 'Basta entrar novamente no site em até 1 dia útil para conferir.';
+      alert(ehPro
+        ? `✅ PDF recebido! Vamos adicionar ao sistema em até 1 dia útil. ${msgAviso}`
+        : `✅ PDF recebido! Validaremos em até 1 dia útil e liberaremos 40% OFF exclusivo na sua conta. ${msgAviso}`);
     }
 
     async function resgatarCupom() {
@@ -1154,14 +1164,18 @@
     // =========================================================================
     function abrirModalEnvioHistorico() {
       if (!usuarioAtual) {
-        alert('Entre ou crie sua conta gratuita primeiro para enviar o modelo e receber 40% OFF direto no seu perfil.');
+        alert('Entre ou crie sua conta gratuita primeiro para enviar o modelo de histórico.');
         abrirModalAuth();
         return;
       }
+      const ehPro = planoUsuario !== 'gratis';
       const modal = document.getElementById('modalUpload');
       document.getElementById('tituloModalUpload').textContent = '📄 Enviar modelo de Histórico Escolar';
-      document.getElementById('descModalUpload').innerHTML = `Ainda não suportamos o histórico automático da <strong>${cursoAtual?.universidade || 'sua universidade'}</strong>. Envie o link de um PDF exemplar (pode ocultar seus dados pessoais) e liberamos a integração <strong>em até 1 dia útil</strong> + <strong>40% OFF</strong> direto na sua conta!`;
+      document.getElementById('descModalUpload').innerHTML = ehPro
+        ? `Como você já possui o <strong>Plano Pro</strong>, envie o link de um PDF exemplar do histórico da <strong>${cursoAtual?.universidade || 'sua universidade'}</strong> (pode ocultar seus dados pessoais) e liberamos a leitura automática <strong>em até 1 dia útil</strong>!`
+        : `Ainda não suportamos o histórico automático da <strong>${cursoAtual?.universidade || 'sua universidade'}</strong>. Envie o link de um PDF exemplar (pode ocultar seus dados pessoais) e liberamos a integração <strong>em até 1 dia útil</strong> + <strong>40% OFF</strong> direto na sua conta!`;
       document.getElementById('btnSubmitUpload').textContent = 'Enviar Histórico para Validação';
+      document.getElementById('upAvisarEmail').checked = false;
       if (cursoAtual) {
         document.getElementById('upUniv').value = cursoAtual.universidade;
         document.getElementById('upCurso').value = `Modelo de Histórico Escolar — ${cursoAtual.curso_nome}`;
