@@ -68,11 +68,12 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
       <div class="flex flex-wrap items-center gap-6">
         <div>
-          <p class="text-xs text-slate-500 font-medium">Progresso Obrigatório</p>
+          <p class="text-xs text-slate-500 font-medium">Disciplinas Obrigatórias da Grade</p>
           <div class="flex items-baseline gap-2">
             <span id="statPct" class="text-2xl font-extrabold text-slate-900">0%</span>
             <span id="statCH" class="text-xs font-medium text-slate-500">0 / 0 H/A</span>
           </div>
+          <p id="statNotaComplementar" class="text-[11px] text-slate-400 mt-0.5">Apenas matérias obrigatórias (não inclui optativas/complementares)</p>
         </div>
         <div class="h-8 w-px bg-slate-200 hidden sm:block"></div>
         <div class="flex gap-3 text-xs flex-wrap">
@@ -654,12 +655,22 @@
         fases[d.fase].push({ ...d, estado: st });
       });
 
-      const pct = cursoAtual.carga_horaria_obrigatoria > 0
-        ? Math.min(100, Math.round((chConcluida / cursoAtual.carga_horaria_obrigatoria) * 100))
+      const totalGradeHA = disciplinas.reduce((acc, d) => acc + d.ha, 0);
+      const baseHA = totalGradeHA > 0 ? totalGradeHA : cursoAtual.carga_horaria_obrigatoria;
+
+      const pct = baseHA > 0
+        ? Math.min(100, Math.round((chConcluida / baseHA) * 100))
         : 0;
 
       document.getElementById('statPct').textContent = pct + '%';
-      document.getElementById('statCH').textContent = `${chConcluida} / ${cursoAtual.carga_horaria_obrigatoria} H/A`;
+      document.getElementById('statCH').textContent = `${chConcluida} / ${baseHA} H/A`;
+
+      const notaEl = document.getElementById('statNotaComplementar');
+      if (notaEl) {
+        notaEl.textContent = cursoAtual.carga_horaria_obrigatoria > baseHA
+          ? `Não inclui optativas, extensão e complementares (total curso: ${cursoAtual.carga_horaria_obrigatoria} H/A)`
+          : 'Apenas matérias obrigatórias (não inclui optativas/complementares)';
+      }
       document.getElementById('countAprovadas').textContent = nAprov;
       document.getElementById('countAptas').textContent = nAptas;
       document.getElementById('countBloqueadas').textContent = nBloq;
@@ -670,19 +681,19 @@
         const todasFeitas = lista.every(d => aprovadas.has(d.codigo));
 
         const cards = lista.map(d => {
-          let estilo = 'bg-white border-slate-200 opacity-75';
-          let badge = `<span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">${d.estado.motivo}</span>`;
+          let estilo = 'bg-slate-50/80 border-slate-200 opacity-75 cursor-not-allowed';
+          let badge = `<span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-200/80 text-slate-600">🔒 ${d.estado.motivo}</span>`;
 
           if (d.estado.status === 'aprovada') {
-            estilo = 'bg-emerald-50/70 border-emerald-300 ring-1 ring-emerald-200';
+            estilo = 'bg-emerald-50/70 border-emerald-300 ring-1 ring-emerald-200 cursor-pointer';
             badge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-600 text-white">✓ Concluída</span>`;
           } else if (d.estado.status === 'apta') {
-            estilo = 'bg-sky-50/60 border-sky-300 hover:border-sky-500 shadow-sm';
+            estilo = 'bg-sky-50/60 border-sky-300 hover:border-sky-500 shadow-sm cursor-pointer';
             badge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-600 text-white">Apta</span>`;
           }
 
           return `
-            <div onclick="alternarMateria('${d.codigo}')" class="cursor-pointer rounded-xl border p-3.5 transition flex flex-col justify-between ${estilo}">
+            <div onclick="alternarMateria('${d.codigo}')" class="rounded-xl border p-3.5 transition flex flex-col justify-between ${estilo}">
               <div>
                 <div class="flex items-center justify-between gap-2 mb-1.5">
                   <span class="text-xs font-bold text-slate-500">${d.codigo}</span>
@@ -713,23 +724,82 @@
       }).join('');
     }
 
+    function calcularCHConcluida() {
+      return (cursoAtual?.disciplinas || [])
+        .filter(d => aprovadas.has(d.codigo))
+        .reduce((acc, d) => acc + d.ha, 0);
+    }
+
+    // Remove em cascata matérias concluídas que perderam pré-requisito ou CH mínima após desmarcar algo
+    function limparDependentesInvalidas() {
+      const disciplinas = cursoAtual?.disciplinas || [];
+      let houveRemocao = true;
+      while (houveRemocao) {
+        houveRemocao = false;
+        const chAtual = calcularCHConcluida();
+        for (const d of disciplinas) {
+          if (!aprovadas.has(d.codigo)) continue;
+          const semEla = new Set(aprovadas);
+          semEla.delete(d.codigo);
+          const chSemEla = chAtual - d.ha;
+          const st = verificarElegibilidade(d, semEla, chSemEla);
+          if (st.status === 'bloqueada') {
+            aprovadas.delete(d.codigo);
+            houveRemocao = true;
+          }
+        }
+      }
+    }
+
     function alternarMateria(codigo) {
-      if (aprovadas.has(codigo)) aprovadas.delete(codigo);
-      else aprovadas.add(codigo);
+      if (!cursoAtual) return;
+      const disc = (cursoAtual.disciplinas || []).find(d => d.codigo === codigo);
+      if (!disc) return;
+
+      if (aprovadas.has(codigo)) {
+        aprovadas.delete(codigo);
+        limparDependentesInvalidas();
+      } else {
+        const st = verificarElegibilidade(disc, aprovadas, calcularCHConcluida());
+        if (st.status === 'bloqueada') {
+          alert(`🔒 Não é possível concluir ${disc.codigo} (${disc.nome}) ainda.
+
+Motivo: ${st.motivo}.`);
+          return;
+        }
+        aprovadas.add(codigo);
+      }
+
       salvarProgresso();
       atualizarAvisoHistorico();
       renderizarGrade();
     }
 
-
-
     function marcarFase(fase) {
+      if (!cursoAtual) return;
       const daFase = cursoAtual.disciplinas.filter(d => d.fase === Number(fase));
       const todas = daFase.every(d => aprovadas.has(d.codigo));
-      daFase.forEach(d => {
-        if (todas) aprovadas.delete(d.codigo);
-        else aprovadas.add(d.codigo);
-      });
+
+      if (todas) {
+        daFase.forEach(d => aprovadas.delete(d.codigo));
+        limparDependentesInvalidas();
+      } else {
+        let bloqueadasIgnoradas = 0;
+        daFase.forEach(d => {
+          if (aprovadas.has(d.codigo)) return;
+          const st = verificarElegibilidade(d, aprovadas, calcularCHConcluida());
+          if (st.status === 'apta') {
+            aprovadas.add(d.codigo);
+          } else {
+            bloqueadasIgnoradas++;
+          }
+        });
+
+        if (bloqueadasIgnoradas > 0) {
+          alert(`⚠️ ${bloqueadasIgnoradas} disciplina(s) desta fase não foram marcadas porque ainda possuem pré-requisitos ou carga horária pendentes.`);
+        }
+      }
+
       salvarProgresso();
       atualizarAvisoHistorico();
       renderizarGrade();
