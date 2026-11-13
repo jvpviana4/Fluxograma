@@ -362,16 +362,39 @@
         </button>
       </form>
 
-      <!-- Área da Conta Logada + Direitos LGPD (Exportar / Excluir) -->
-      <div id="authUserBox" class="hidden mt-4 pt-4 border-t border-slate-200 space-y-2.5 text-xs">
-        <div class="flex items-center justify-between">
-          <span id="authUserEmail" class="font-semibold text-slate-700 truncate max-w-[220px]"></span>
-          <button onclick="sairConta()" class="text-slate-600 font-semibold hover:underline">Sair da conta</button>
+      <!-- Área da Conta Logada + Direitos LGPD (Exportar / Zona de Perigo) -->
+      <div id="authUserBox" class="hidden mt-4 pt-4 border-t border-slate-200 space-y-3 text-xs">
+        <div class="flex items-center justify-between gap-2">
+          <span id="authUserEmail" class="font-semibold text-slate-700 truncate max-w-[210px]"></span>
+          <button type="button" onclick="sairConta()" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 font-semibold hover:bg-slate-100 transition">
+            Sair da conta
+          </button>
         </div>
-        <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
-          <button onclick="exportarMeusDados()" class="text-indigo-600 hover:underline font-medium">📥 Baixar meus dados (JSON)</button>
-          <button onclick="excluirMinhaConta()" class="text-rose-600 hover:underline font-medium">🗑️ Excluir conta e dados</button>
+
+        <div class="pt-2 border-t border-slate-100">
+          <button type="button" onclick="exportarMeusDados()" class="text-[11px] text-indigo-600 hover:underline font-medium">
+            📥 Baixar meus dados salvos (JSON)
+          </button>
         </div>
+
+        <!-- Zona de perigo isolada e recolhida para evitar cliques acidentais -->
+        <details class="pt-2 border-t border-slate-100 group">
+          <summary class="text-[11px] text-slate-400 hover:text-rose-600 cursor-pointer select-none list-none flex items-center justify-between">
+            <span>Opções avançadas de privacidade (LGPD)</span>
+            <span class="group-open:rotate-180 transition-transform">▾</span>
+          </summary>
+          <div class="mt-2.5 p-3 rounded-xl bg-rose-50/70 border border-rose-200 space-y-2">
+            <p class="text-[11px] text-rose-800 leading-snug">
+              <strong>Atenção:</strong> A exclusão apaga permanentemente sua conta, progresso e assinatura ativa. Para confirmar, digite <strong>EXCLUIR</strong> abaixo:
+            </p>
+            <div class="flex gap-2">
+              <input id="inputConfirmarExclusao" type="text" placeholder="Digite EXCLUIR" oninput="validarInputExclusao()" class="flex-1 text-xs uppercase bg-white border border-rose-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500" />
+              <button id="btnConfirmarExclusao" type="button" disabled onclick="excluirMinhaConta()" class="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold opacity-40 cursor-not-allowed transition">
+                Apagar conta
+              </button>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   </div>
@@ -1419,16 +1442,38 @@
       URL.revokeObjectURL(url);
     }
 
+    function validarInputExclusao() {
+      const val = (document.getElementById('inputConfirmarExclusao')?.value || '').trim().toUpperCase();
+      const btn = document.getElementById('btnConfirmarExclusao');
+      if (!btn) return;
+      if (val === 'EXCLUIR') {
+        btn.disabled = false;
+        btn.className = 'px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold cursor-pointer transition';
+      } else {
+        btn.disabled = true;
+        btn.className = 'px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold opacity-40 cursor-not-allowed transition';
+      }
+    }
+
     // Eliminação de Dados Pessoais (Art. 18, VI da LGPD)
     async function excluirMinhaConta() {
       if (!usuarioAtual) return;
-      const confirmacao = confirm('Tem certeza que deseja excluir permanentemente seus dados e progresso salvos na nuvem? Essa ação não pode ser desfeita.');
-      if (!confirmacao) return;
+      const val = (document.getElementById('inputConfirmarExclusao')?.value || '').trim().toUpperCase();
+      if (val !== 'EXCLUIR') return;
 
-      await supabaseClient.from('progresso_alunos').delete().eq('user_id', usuarioAtual.id);
-      await supabaseClient.from('perfis').delete().eq('id', usuarioAtual.id);
+      const { error } = await supabaseClient.rpc('excluir_propria_conta');
+      if (error) {
+        // Fallback caso a RPC ainda não tenha sido criada no banco
+        await supabaseClient.from('progresso_alunos').delete().eq('user_id', usuarioAtual.id);
+        await supabaseClient.from('perfis').delete().eq('id', usuarioAtual.id);
+      }
+
+      const inp = document.getElementById('inputConfirmarExclusao');
+      if (inp) inp.value = '';
+      validarInputExclusao();
+
       await sairConta();
-      alert('Seus dados pessoais e histórico acadêmico foram removidos com sucesso.');
+      alert('Sua conta, dados pessoais e histórico acadêmico foram removidos permanentemente.');
     }
 
     async function enviarCurriculoNovo(e) {
