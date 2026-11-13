@@ -115,12 +115,17 @@
     </div>
   </main>
 
-  <!-- Rodapé com Links LGPD -->
+  <!-- Rodapé com Isenção Institucional e Links LGPD -->
   <footer class="bg-white border-t border-slate-200 mt-12">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
-      <span>© 2026 Fluxograma Universitário · Todos os direitos reservados.</span>
-      <div class="flex items-center gap-4">
-        <button onclick="abrirModalPrivacidade()" class="hover:text-indigo-600 underline">Política de Privacidade e Termos (LGPD)</button>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-slate-500">
+      <div class="space-y-1 max-w-2xl">
+        <p class="font-medium text-slate-600">© 2026 Fluxograma Universitário · Plataforma independente desenvolvida por estudantes.</p>
+        <p class="text-[11px] text-slate-400 leading-relaxed">
+          Aviso legal: Esta ferramenta não possui vínculo, parceria ou afiliação oficial com a UFSC, UDESC ou qualquer outra instituição de ensino. Os dados curriculares são públicos e o planejamento tem caráter exclusivamente auxiliar, não substituindo os registros e regras oficiais do CAGR/SIGA.
+        </p>
+      </div>
+      <div class="flex items-center gap-4 shrink-0">
+        <button onclick="abrirModalPrivacidade()" class="hover:text-indigo-600 underline">Privacidade e Termos (LGPD)</button>
         <button onclick="abrirModalUpload()" class="hover:text-indigo-600 underline">Enviar Grade Curricular</button>
       </div>
     </div>
@@ -354,11 +359,11 @@
       <button onclick="fecharModal('modalPrivacidade')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 font-bold" aria-label="Fechar">✕</button>
       <h3 class="text-lg font-bold text-slate-900 mb-3">Política de Privacidade e Termos de Uso (LGPD)</h3>
       <div class="text-xs text-slate-600 space-y-3 overflow-y-auto pr-2 custom-scroll leading-relaxed">
-        <p><strong>1. Dados Coletados:</strong> Coletamos apenas o seu endereço de e-mail (para autenticação) e as marcações de disciplinas/simulações de grade curricular inseridas por você na plataforma.</p>
-        <p><strong>2. Finalidade:</strong> Os dados são utilizados exclusivamente para salvar e sincronizar seu progresso acadêmico entre dispositivos e gerenciar o status da sua assinatura (Grátis ou Pro).</p>
-        <p><strong>3. Compartilhamento:</strong> Seus dados pessoais não são vendidos nem compartilhados com terceiros, exceto com os provedores essenciais de infraestrutura (Supabase para banco de dados e gateway de pagamento quando houver contratação de plano).</p>
+        <p><strong>1. Dados Coletados:</strong> Coletamos apenas o seu endereço de e-mail (para autenticação) e os códigos das disciplinas concluídas/simulações de grade curricular marcados por você na plataforma.</p>
+        <p><strong>2. Leitura Local do Histórico PDF (Privacidade por Padrão):</strong> Ao utilizar a função de importação automática, o arquivo PDF do seu Histórico Escolar é lido <strong>100% localmente no navegador do seu próprio dispositivo</strong>. O documento original (contendo CPF, matrícula ou notas) nunca é enviado, transmitido ou armazenado em nossos servidores.</p>
+        <p><strong>3. Finalidade e Compartilhamento:</strong> Os dados salvos na nuvem servem exclusivamente para sincronizar seu progresso entre dispositivos e gerenciar sua assinatura. Seus dados não são vendidos nem compartilhados com terceiros, exceto com os provedores essenciais de infraestrutura (Supabase para banco de dados e Mercado Pago para processamento de Pix).</p>
         <p><strong>4. Seus Direitos (Art. 18 da LGPD):</strong> A qualquer momento, dentro do menu <em>Sua Conta</em>, você pode baixar uma cópia completa dos seus dados em formato JSON ou solicitar a exclusão imediata e definitiva da sua conta e de todo o seu histórico.</p>
-        <p><strong>5. Isenção Acadêmica:</strong> O Fluxograma Universitário é uma ferramenta independente de apoio ao planejamento e não substitui os registros oficiais do CAGR/DAE da sua instituição de ensino.</p>
+        <p><strong>5. Independência e Isenção Acadêmica:</strong> O Fluxograma Universitário é uma plataforma independente, sem vínculo, parceria ou afiliação oficial com a UFSC, UDESC ou qualquer outra instituição de ensino. As matrizes curriculares baseiam-se em dados públicos e têm caráter exclusivamente auxiliar, não substituindo os registros oficiais do CAGR/SIGA.</p>
       </div>
       <button onclick="fecharModal('modalPrivacidade')" class="mt-4 w-full py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold">Entendi</button>
     </div>
@@ -762,9 +767,7 @@
       } else {
         const st = verificarElegibilidade(disc, aprovadas, calcularCHConcluida());
         if (st.status === 'bloqueada') {
-          alert(`🔒 Não é possível concluir ${disc.codigo} (${disc.nome}) ainda.
-
-Motivo: ${st.motivo}.`);
+          alert(`🔒 Não é possível concluir ${disc.codigo} (${disc.nome}) ainda.\n\nMotivo: ${st.motivo}.`);
           return;
         }
         aprovadas.add(codigo);
@@ -804,8 +807,6 @@ Motivo: ${st.motivo}.`);
       atualizarAvisoHistorico();
       renderizarGrade();
     }
-
-
 
     // =========================================================================
     // PLANEJADOR MULTI-SEMESTRES ATÉ A FORMATURA (PRO)
@@ -1018,384 +1019,4 @@ Motivo: ${st.motivo}.`);
       usuarioAtual = null;
       planoUsuario = 'gratis';
       descontoPioneiroDisponivel = false;
-      descontoCupomPct = 0;
-      document.getElementById('btnAuth').textContent = 'Entrar / Salvar na Nuvem';
-      document.getElementById('authUserBox').classList.add('hidden');
-      atualizarBadgePlano();
-      fecharModal('modalAuth');
-    }
-
-    // Portabilidade de Dados (Art. 18, V da LGPD)
-    async function exportarMeusDados() {
-      if (!usuarioAtual) return;
-      const { data: progresso } = await supabaseClient
-        .from('progresso_alunos')
-        .select('*')
-        .eq('user_id', usuarioAtual.id);
-
-      const pacote = {
-        exportado_em: new Date().toISOString(),
-        usuario: { id: usuarioAtual.id, email: usuarioAtual.email, plano: planoUsuario },
-        historico_salvo: progresso || []
-      };
-
-      const blob = new Blob([JSON.stringify(pacote, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `meus_dados_fluxograma_${new Date().toISOString().slice(0,10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    // Eliminação de Dados Pessoais (Art. 18, VI da LGPD)
-    async function excluirMinhaConta() {
-      if (!usuarioAtual) return;
-      const confirmacao = confirm('Tem certeza que deseja excluir permanentemente seus dados e progresso salvos na nuvem? Essa ação não pode ser desfeita.');
-      if (!confirmacao) return;
-
-      await supabaseClient.from('progresso_alunos').delete().eq('user_id', usuarioAtual.id);
-      await supabaseClient.from('perfis').delete().eq('id', usuarioAtual.id);
-      await sairConta();
-      alert('Seus dados pessoais e histórico acadêmico foram removidos com sucesso.');
-    }
-
-    async function enviarCurriculoNovo(e) {
-      e.preventDefault();
-      if (!usuarioAtual) {
-        alert('Faça login antes de enviar o PDF.');
-        abrirModalAuth();
-        return;
-      }
-
-      const avisarEmail = document.getElementById('upAvisarEmail').checked;
-      const { error } = await supabaseClient.from('envios_curriculos').insert({
-        user_id: usuarioAtual.id,
-        universidade: document.getElementById('upUniv').value,
-        curso: document.getElementById('upCurso').value,
-        arquivo_url: document.getElementById('upLink').value,
-        avisar_email: avisarEmail,
-        status: 'pendente'
-      });
-
-      if (error) {
-        alert('Erro ao enviar: ' + error.message);
-        return;
-      }
-      fecharModal('modalUpload');
-      const ehPro = planoUsuario !== 'gratis';
-      const msgAviso = avisarEmail
-        ? 'Vamos te avisar por e-mail assim que estiver liberado!'
-        : 'Basta entrar novamente no site em até 1 dia útil para conferir.';
-      alert(ehPro
-        ? `✅ PDF recebido! Vamos adicionar ao sistema em até 1 dia útil. ${msgAviso}`
-        : `✅ PDF recebido! Validaremos em até 1 dia útil e liberaremos 40% OFF exclusivo na sua conta. ${msgAviso}`);
-    }
-
-    async function resgatarCupom() {
-      const codigo = document.getElementById('inputCupom').value.trim();
-      if (!codigo) return;
-      if (!usuarioAtual) {
-        alert('Crie ou entre na sua conta gratuita antes de aplicar um cupom.');
-        fecharModal('modalPlanos');
-        abrirModalAuth();
-        return;
-      }
-
-      const { data, error } = await supabaseClient.rpc('aplicar_cupom_usuario', { p_codigo: codigo });
-      if (error || !data?.ok) {
-        alert(data?.erro || 'Não foi possível validar o cupom.');
-        return;
-      }
-
-      descontoCupomPct = data.desconto_pct;
-      atualizarPrecosModal();
-
-      if (descontoCupomPct === 100) {
-        await ativarPlanoGratuitoCupom('pro_formatura');
-        alert('🎉 Cupom BETA100 ativado! Seu acesso Pro até a formatura já está liberado.');
-      } else {
-        alert(`✅ Cupom ${data.codigo} aplicado (${data.desconto_pct}% OFF)!`);
-      }
-    }
-
-    let intervaloChecagemPix = null;
-
-    function fecharModalPix() {
-      if (intervaloChecagemPix) {
-        clearInterval(intervaloChecagemPix);
-        intervaloChecagemPix = null;
-      }
-      fecharModal('modalPix');
-    }
-
-    function copiarCodigoPix() {
-      const input = document.getElementById('pixCopiaCola');
-      input.select();
-      navigator.clipboard.writeText(input.value);
-      alert('Código Pix Copia e Cola copiado!');
-    }
-
-    async function ativarPlanoGratuitoCupom(plano) {
-      planoUsuario = plano;
-      atualizarBadgePlano();
-      await supabaseClient.from('perfis').update({
-        plano,
-        plano_expira_em: null
-      }).eq('id', usuarioAtual.id);
-      fecharModal('modalPlanos');
-      abrirPlanejador();
-    }
-
-    async function assinarPlano(plano) {
-      if (!usuarioAtual) {
-        alert('Crie ou entre na sua conta gratuita para salvar sua assinatura na nuvem.');
-        fecharModal('modalPlanos');
-        abrirModalAuth();
-        return;
-      }
-
-      // Se aplicou cupom 100% OFF (ex: BETA100), libera direto sem Pix
-      if (descontoCupomPct === 100) {
-        await ativarPlanoGratuitoCupom(plano);
-        return;
-      }
-
-      const nomesPlanos = {
-        pro_semestral: 'Passe Semestral (6 meses)',
-        pro_anual: 'Passe Anual (12 meses)',
-        pro_formatura: 'Passe Até a Formatura'
-      };
-
-      fecharModal('modalPlanos');
-      document.getElementById('pixTituloPlano').textContent = nomesPlanos[plano] || 'Fluxograma Pro';
-      document.getElementById('pixLoading').classList.remove('hidden');
-      document.getElementById('pixConteudo').classList.add('hidden');
-      document.getElementById('modalPix').classList.remove('hidden');
-
-      const { data, error } = await supabaseClient.functions.invoke('criar-pix', {
-        body: { plano, desconto_cupom_pct: descontoCupomPct }
-      });
-
-      if (error || !data?.qr_code) {
-        fecharModalPix();
-        let detalhe = data?.erro || error?.message || 'Erro desconhecido';
-        if (error?.context) {
-          try {
-            const bodyErr = await error.context.json();
-            if (bodyErr?.erro) detalhe = bodyErr.erro;
-          } catch (_) {}
-        }
-        alert('Erro no Pix: ' + detalhe);
-        return;
-      }
-
-      document.getElementById('pixValorTexto').textContent = formatarBRL(Number(data.valor));
-      document.getElementById('pixQrImg').src = `data:image/png;base64,${data.qr_code_base64}`;
-      document.getElementById('pixCopiaCola').value = data.qr_code;
-      document.getElementById('pixLoading').classList.add('hidden');
-      document.getElementById('pixConteudo').classList.remove('hidden');
-
-      // Verifica a cada 4 segundos se o webhook do Mercado Pago já ativou o plano
-      intervaloChecagemPix = setInterval(async () => {
-        const { data: perfilAtualizado } = await supabaseClient
-          .from('perfis')
-          .select('plano, desconto_pioneiro_disponivel, desconto_pioneiro_usado')
-          .eq('id', usuarioAtual.id)
-          .single();
-
-        if (perfilAtualizado && perfilAtualizado.plano !== 'gratis') {
-          planoUsuario = perfilAtualizado.plano;
-          descontoPioneiroDisponivel = Boolean(perfilAtualizado.desconto_pioneiro_disponivel && !perfilAtualizado.desconto_pioneiro_usado);
-          atualizarBadgePlano();
-          fecharModalPix();
-          alert('🎉 Pagamento Pix confirmado! Seu acesso Fluxograma Pro já está liberado.');
-          abrirPlanejador();
-        }
-      }, 4000);
-    }
-
-    // =========================================================================
-    // IMPORTAÇÃO AUTOMÁTICA DO HISTÓRICO ESCOLAR UFSC/CAGR (PRO)
-    // =========================================================================
-    function abrirModalEnvioHistorico() {
-      if (!usuarioAtual) {
-        alert('Entre ou crie sua conta gratuita primeiro para enviar o modelo de histórico.');
-        abrirModalAuth();
-        return;
-      }
-      const ehPro = planoUsuario !== 'gratis';
-      const modal = document.getElementById('modalUpload');
-      document.getElementById('tituloModalUpload').textContent = '📄 Enviar modelo de Histórico Escolar';
-      document.getElementById('descModalUpload').innerHTML = ehPro
-        ? `Como você já possui o <strong>Plano Pro</strong>, envie o link de um PDF exemplar do histórico da <strong>${cursoAtual?.universidade || 'sua universidade'}</strong> (pode ocultar seus dados pessoais) e liberamos a leitura automática <strong>em até 1 dia útil</strong>!`
-        : `Ainda não suportamos o histórico automático da <strong>${cursoAtual?.universidade || 'sua universidade'}</strong>. Envie o link de um PDF exemplar (pode ocultar seus dados pessoais) e liberamos a integração <strong>em até 1 dia útil</strong> + <strong>40% OFF</strong> direto na sua conta!`;
-      document.getElementById('btnSubmitUpload').textContent = 'Enviar Histórico para Validação';
-      document.getElementById('upAvisarEmail').checked = false;
-      if (cursoAtual) {
-        document.getElementById('upUniv').value = cursoAtual.universidade;
-        document.getElementById('upCurso').value = `Modelo de Histórico Escolar — ${cursoAtual.curso_nome}`;
-      }
-      modal.classList.remove('hidden');
-    }
-
-    function acionarImportacaoHistorico() {
-      if (cursoAtual && !UNIVERSIDADES_HISTORICO_SUPORTADAS.includes(cursoAtual.universidade)) {
-        abrirModalEnvioHistorico();
-        return;
-      }
-
-      if (planoUsuario === 'gratis') {
-        abrirModalPlanos();
-        return;
-      }
-
-      document.getElementById('inputHistoricoPdf').value = '';
-      document.getElementById('inputHistoricoPdf').click();
-    }
-
-    async function processarHistoricoPdf(event) {
-      const file = event.target.files?.[0];
-      if (!file) return;
-
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-        let textoCompleto = '';
-        const codigosAprovadosPdf = new Set();
-
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 1.0 });
-          const midX = viewport.width / 2;
-          const content = await page.getTextContent();
-
-          // Separa coluna esquerda e coluna direita do layout de 2 colunas do Histórico CAGR
-          const colEsq = [];
-          const colDir = [];
-          content.items.forEach(it => {
-            if (!it.str || !it.str.trim()) return;
-            if (it.transform[4] < midX - 15) colEsq.push(it);
-            else colDir.push(it);
-          });
-
-          const ordenarPorLinha = (arr) => arr.sort((a, b) => {
-            const dy = Math.abs(b.transform[5] - a.transform[5]);
-            if (dy > 5) return b.transform[5] - a.transform[5];
-            return a.transform[4] - b.transform[4];
-          });
-
-          const textoPagina = [
-            ordenarPorLinha(colEsq).map(it => it.str).join(' '),
-            ordenarPorLinha(colDir).map(it => it.str).join(' ')
-          ].join('\n');
-
-          textoCompleto += textoPagina + '\n';
-        }
-
-        // Detecta curso e currículo do cabeçalho do Histórico UFSC (ex: "Curso: 602 ... Currículo: 2016/1")
-        const matchCurso = textoCompleto.match(/Curso:\s*(\d{3})/i);
-        const matchCurr = textoCompleto.match(/Curr[íi]culo:\s*(\d{4})\/?(\d)/i);
-
-        if (matchCurso && matchCurr) {
-          const codCursoPdf = matchCurso[1];
-          const currPdf = `${matchCurr[1]}${matchCurr[2]}`;
-          const alvo = catalogoCurriculos.find(c => c.curso_codigo === codCursoPdf && c.curriculo === currPdf);
-          if (alvo && (!cursoAtual || cursoAtual.id !== alvo.id)) {
-            popularFaculdades(alvo.id);
-            await new Promise(r => setTimeout(r, 150));
-          }
-        }
-
-        // Extrai cada ocorrência de disciplina no histórico (janela de até 240 chars para nomes longos em 2 linhas)
-        const regexDisc = /([A-Z]{3}\d{4})\b([\s\S]{1,240}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
-        let match;
-
-        while ((match = regexDisc.exec(textoCompleto)) !== null) {
-          const codigo = match[1];
-          const trecho = match[2];
-
-          // Ignora explicitamente Frequência Insuficiente (FI)
-          if (/\bFI\b/.test(trecho)) continue;
-
-          const temFS = /\bFS\b/.test(trecho);
-          const temValidacao = /\b(V|R|Rv)\b/.test(trecho);
-
-          // Busca notas decimais (ex: 6.5, 10.0, 9.5, 7.0)
-          const notasMatch = trecho.match(/\b(10(?:[.,]0)?|[0-9][.,]\d)\b/g);
-          let notaAprovada = false;
-          if (notasMatch) {
-            notaAprovada = notasMatch.some(n => parseFloat(n.replace(',', '.')) >= 6.0);
-          }
-
-          if ((temFS && notaAprovada) || temValidacao) {
-            codigosAprovadosPdf.add(codigo);
-          }
-        }
-
-        // Fallback de segurança para códigos no limite central (midX) que tenham ficado na coluna oposta
-        const fallbackGlobal = [];
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          const items = content.items.sort((a, b) => {
-            const dy = Math.abs(b.transform[5] - a.transform[5]);
-            if (dy > 5) return b.transform[5] - a.transform[5];
-            return a.transform[4] - b.transform[4];
-          });
-          fallbackGlobal.push(items.map(it => it.str).join(' '));
-        }
-        const textoLinear = fallbackGlobal.join('\n');
-        const regexFallback = /([A-Z]{3}\d{4})\b([\s\S]{1,120}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
-        while ((match = regexFallback.exec(textoLinear)) !== null) {
-          const codigo = match[1];
-          if (codigosAprovadosPdf.has(codigo)) continue;
-          const trecho = match[2];
-          if (/\bFI\b/.test(trecho)) continue;
-          const temFS = /\bFS\b/.test(trecho);
-          const temValidacao = /\b(V|R|Rv)\b/.test(trecho);
-          const notasMatch = trecho.match(/\b(10(?:[.,]0)?|[0-9][.,]\d)\b/g);
-          const notaAprovada = notasMatch ? notasMatch.some(n => parseFloat(n.replace(',', '.')) >= 6.0) : false;
-          if ((temFS && notaAprovada) || temValidacao) {
-            codigosAprovadosPdf.add(codigo);
-          }
-        }
-
-        if (!cursoAtual) {
-          alert('Selecione um curso antes de importar o histórico.');
-          return;
-        }
-
-        const obrigatoriasCurso = new Set((cursoAtual.disciplinas || []).map(d => d.codigo));
-        let novasMarcadas = 0;
-
-        codigosAprovadosPdf.forEach(cod => {
-          if (obrigatoriasCurso.has(cod) && !aprovadas.has(cod)) {
-            aprovadas.add(cod);
-            novasMarcadas++;
-          }
-        });
-
-        // Caso especial do Estágio Obrigatório na UFSC (EMB5046 equivale a EMB5443 + EMB5444)
-        if (codigosAprovadosPdf.has('EMB5443') && codigosAprovadosPdf.has('EMB5444') && obrigatoriasCurso.has('EMB5046')) {
-          if (!aprovadas.has('EMB5046')) {
-            aprovadas.add('EMB5046');
-            novasMarcadas++;
-          }
-        }
-
-        await salvarProgresso();
-        renderizarGrade();
-
-        alert(`✅ Histórico lido com sucesso!\n\n• ${codigosAprovadosPdf.size} disciplinas aprovadas identificadas no PDF.\n• ${novasMarcadas} novas obrigatórias marcadas na sua grade.`);
-      } catch (err) {
-        console.error(err);
-        alert('Não foi possível ler este PDF. Verifique se é o PDF original do Histórico Escolar emitido pelo CAGR/UFSC.');
-      }
-    }
-
-    inicializar();
-  </script>
-</body>
-</html>
+      descontoCupomPct
