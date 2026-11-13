@@ -1113,7 +1113,14 @@
 
       if (error || !data?.qr_code) {
         fecharModalPix();
-        alert(data?.erro || 'Erro ao gerar cobrança Pix. Verifique se a Edge Function criar-pix está publicada no Supabase.');
+        let detalhe = data?.erro || error?.message || 'Erro desconhecido';
+        if (error?.context) {
+          try {
+            const bodyErr = await error.context.json();
+            if (bodyErr?.erro) detalhe = bodyErr.erro;
+          } catch (_) {}
+        }
+        alert('Erro no Pix: ' + detalhe);
         return;
       }
 
