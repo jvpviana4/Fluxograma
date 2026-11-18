@@ -283,12 +283,12 @@
     </div>
   </div>
 
-  <!-- Modal: Envio de Currículo ou Modelo de Histórico (Desconto Pioneiro 40% vinculado à conta) -->
+  <!-- Modal: Envio de Currículo ou Modelo de Histórico (Upload Direto PDF -> Supabase Storage) -->
   <div id="modalUpload" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative">
       <button onclick="fecharModal('modalUpload')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 font-bold" aria-label="Fechar">✕</button>
       <h3 id="tituloModalUpload" class="text-lg font-bold text-slate-900">🎁 Ganhe 40% OFF enviando um currículo</h3>
-      <p id="descModalUpload" class="text-xs text-slate-600 mt-1">Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial e assim que validarmos (em até 3 dias úteis), <strong>40% de desconto</strong> será ativado automaticamente na sua conta.</p>
+      <p id="descModalUpload" class="text-xs text-slate-600 mt-1">Seu curso ou faculdade ainda não está no catálogo? Anexe o PDF oficial abaixo e assim que validarmos (em até 3 dias úteis), <strong>40% de desconto</strong> será ativado automaticamente na sua conta.</p>
       <form onsubmit="enviarCurriculoNovo(event)" class="mt-4 space-y-3">
         <div>
           <label class="block text-xs font-semibold text-slate-700 mb-1">Universidade / Sigla</label>
@@ -299,8 +299,8 @@
           <input id="upCurso" type="text" required placeholder="Ex: Engenharia Mecânica - 2023.1" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2" />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">Link do PDF (Google Drive / Site da IES)</label>
-          <input id="upLink" type="url" required placeholder="https://..." class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2" />
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Arquivo PDF Oficial (máx. 10 MB)</label>
+          <input id="upArquivoPdf" type="file" accept=".pdf,application/pdf" required class="w-full text-xs text-slate-600 border border-slate-300 rounded-lg p-2 bg-slate-50 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer" />
         </div>
         <div class="rounded-lg bg-slate-50 border border-slate-200 p-2.5 text-[11px] text-slate-600 space-y-2">
           <p>⏱️ Prazo de integração: <strong>até 3 dias úteis</strong>. Depois disso, basta entrar novamente no site para utilizar.</p>
@@ -310,7 +310,7 @@
           </label>
         </div>
         <button id="btnSubmitUpload" type="submit" class="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition">
-          Enviar Currículo para Validação
+          Enviar PDF para Validação
         </button>
       </form>
     </div>
@@ -594,7 +594,7 @@
                 <span class="inline-block text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500 text-white">Expansão do Catálogo · 40% OFF</span>
                 <h2 class="text-sm sm:text-base font-bold text-slate-900">Seu curso ou universidade ainda não está aqui?</h2>
                 <p class="text-xs text-slate-600 leading-relaxed">
-                  Envie o link do PDF oficial da sua grade curricular. Nossa equipe integra ao sistema <strong>em até 3 dias úteis</strong> e libera <strong>40% de desconto</strong> exclusivo na sua conta!
+                  Envie o PDF oficial da sua grade curricular. Nossa equipe integra ao sistema <strong>em até 3 dias úteis</strong> e libera <strong>40% de desconto</strong> exclusivo na sua conta!
                 </p>
               </div>
               <button type="button" onclick="abrirModalUpload()" class="shrink-0 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm shadow-sm transition">
@@ -1206,11 +1206,13 @@
         ? '📚 Sugerir novo currículo ao catálogo'
         : '🎁 Ganhe 40% OFF enviando um currículo';
       document.getElementById('descModalUpload').innerHTML = ehPro
-        ? 'Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial da grade curricular e nossa equipe adiciona ao sistema <strong>em até 3 dias úteis</strong>.'
-        : 'Seu curso ou faculdade ainda não está no catálogo? Envie o link do PDF oficial e assim que validarmos (em até 3 dias úteis), <strong>40% de desconto</strong> será ativado automaticamente na sua conta.';
-      document.getElementById('btnSubmitUpload').textContent = 'Enviar Currículo para Validação';
+        ? 'Seu curso ou faculdade ainda não está no catálogo? Anexe o PDF oficial da grade curricular e nossa equipe adiciona ao sistema <strong>em até 3 dias úteis</strong>.'
+        : 'Seu curso ou faculdade ainda não está no catálogo? Anexe o PDF oficial e assim que validarmos (em até 3 dias úteis), <strong>40% de desconto</strong> será ativado automaticamente na sua conta.';
+      document.getElementById('btnSubmitUpload').textContent = 'Enviar PDF para Validação';
+      document.getElementById('btnSubmitUpload').disabled = false;
       document.getElementById('upUniv').value = '';
       document.getElementById('upCurso').value = '';
+      document.getElementById('upArquivoPdf').value = '';
       document.getElementById('upAvisarEmail').checked = false;
       document.getElementById('modalUpload').classList.remove('hidden');
     }
@@ -1361,7 +1363,7 @@
 
       fecharModal('modalAuth');
       if (modoAuth === 'signup' && curriculoEscolhidoId === '__nao_encontrado__') {
-        alert('Conta criada com sucesso! Envie agora o link do PDF oficial do seu currículo para adicionarmos em até 3 dias úteis e liberarmos 40% OFF.');
+        alert('Conta criada com sucesso! Envie agora o PDF oficial do seu currículo para adicionarmos em até 3 dias úteis e liberarmos 40% OFF.');
         abrirModalUpload();
       } else {
         alert(modoAuth === 'signup' ? 'Conta criada com sucesso!' : 'Login realizado! Seu curso e progresso foram carregados.');
@@ -1484,20 +1486,61 @@
         return;
       }
 
+      const fileInput = document.getElementById('upArquivoPdf');
+      const arquivo = fileInput?.files?.[0];
+      if (!arquivo) {
+        alert('Selecione um arquivo PDF antes de enviar.');
+        return;
+      }
+      if (arquivo.size > 10 * 1024 * 1024) {
+        alert('O arquivo ultrapassa o limite de 10 MB.');
+        return;
+      }
+
+      const btn = document.getElementById('btnSubmitUpload');
+      const textoOriginal = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Enviando PDF...';
+
+      const univ = document.getElementById('upUniv').value.trim();
+      const curso = document.getElementById('upCurso').value.trim();
+      const slug = `${univ}_${curso}`
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '_')
+        .replace(/^_|_$/g, '')
+        .slice(0, 60);
+
+      const caminhoStorage = `${usuarioAtual.id}/${Date.now()}_${slug || 'curriculo'}.pdf`;
+
+      const { error: uploadError } = await supabaseClient.storage
+        .from('curriculos-enviados')
+        .upload(caminhoStorage, arquivo, { contentType: 'application/pdf', upsert: false });
+
+      if (uploadError) {
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+        alert('Erro ao fazer upload do PDF: ' + uploadError.message);
+        return;
+      }
+
       const avisarEmail = document.getElementById('upAvisarEmail').checked;
       const { error } = await supabaseClient.from('envios_curriculos').insert({
         user_id: usuarioAtual.id,
-        universidade: document.getElementById('upUniv').value,
-        curso: document.getElementById('upCurso').value,
-        arquivo_url: document.getElementById('upLink').value,
+        universidade: univ,
+        curso: curso,
+        arquivo_url: `storage://curriculos-enviados/${caminhoStorage}`,
         avisar_email: avisarEmail,
         status: 'pendente'
       });
 
+      btn.disabled = false;
+      btn.textContent = textoOriginal;
+
       if (error) {
-        alert('Erro ao enviar: ' + error.message);
+        alert('Erro ao registrar envio: ' + error.message);
         return;
       }
+
       fecharModal('modalUpload');
       const ehPro = planoUsuario !== 'gratis';
       const msgAviso = avisarEmail
@@ -1649,9 +1692,11 @@
       const modal = document.getElementById('modalUpload');
       document.getElementById('tituloModalUpload').textContent = '📄 Enviar modelo de Histórico Escolar';
       document.getElementById('descModalUpload').innerHTML = ehPro
-        ? `Como você já possui o <strong>Plano Pro</strong>, envie o link de um PDF exemplar do histórico da <strong>${cursoAtual?.universidade || 'sua universidade'}</strong> (pode ocultar seus dados pessoais) e liberamos a leitura automática <strong>em até 3 dias úteis</strong>!`
-        : `Ainda não suportamos o histórico automático da <strong>${cursoAtual?.universidade || 'sua universidade'}</strong>. Envie o link de um PDF exemplar (pode ocultar seus dados pessoais) e liberamos a integração <strong>em até 3 dias úteis</strong> + <strong>40% OFF</strong> direto na sua conta!`;
+        ? `Como você já possui o <strong>Plano Pro</strong>, anexe um PDF exemplar do histórico da <strong>${cursoAtual?.universidade || 'sua universidade'}</strong> (pode ocultar seus dados pessoais) e liberamos a leitura automática <strong>em até 3 dias úteis</strong>!`
+        : `Ainda não suportamos o histórico automático da <strong>${cursoAtual?.universidade || 'sua universidade'}</strong>. Anexe um PDF exemplar (pode ocultar seus dados pessoais) e liberamos a integração <strong>em até 3 dias úteis</strong> + <strong>40% OFF</strong> direto na sua conta!`;
       document.getElementById('btnSubmitUpload').textContent = 'Enviar Histórico para Validação';
+      document.getElementById('btnSubmitUpload').disabled = false;
+      document.getElementById('upArquivoPdf').value = '';
       document.getElementById('upAvisarEmail').checked = false;
       if (cursoAtual) {
         document.getElementById('upUniv').value = cursoAtual.universidade;
