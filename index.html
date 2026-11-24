@@ -108,7 +108,7 @@
     </div>
   </section>
 
-<!-- Seção de Optativas (Recolhível) + Grade Curricular por Fases -->
+  <!-- Seção de Optativas (Recolhível no Topo) + Grade Curricular por Fases -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
     <details id="secaoOptativas" class="hidden group bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       <summary class="list-none cursor-pointer select-none p-5 sm:px-6 sm:py-4 flex flex-wrap items-center justify-between gap-4 hover:bg-slate-50/70 transition">
@@ -1891,7 +1891,6 @@
 
       fecharModal('modalPlanos');
       document.getElementById('pixTituloPlano').textContent = nomesPlanos[plano] || 'Fluxograma Pro';
-      document.getElementById('pixValorTexto').textContent = formatarBRL(Number(data.valor));
       document.getElementById('pixLoading').classList.remove('hidden');
       document.getElementById('pixConteudo').classList.add('hidden');
       document.getElementById('modalPix').classList.remove('hidden');
