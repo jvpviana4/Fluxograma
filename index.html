@@ -1223,9 +1223,7 @@
       } else {
         const st = verificarElegibilidade(disc, aprovadas, calcularCHConcluida());
         if (st.status === 'bloqueada') {
-          alert(`🔒 Não é possível concluir ${disc.codigo} (${disc.nome}) ainda.
-
-Motivo: ${st.motivo}.`);
+          alert(`🔒 Não é possível concluir ${disc.codigo} (${disc.nome}) ainda.\n\nMotivo: ${st.motivo}.`);
           return;
         }
         aprovadas.add(codigo);
@@ -1292,8 +1290,7 @@ Motivo: ${st.motivo}.`);
           try {
             horariosBrutos = JSON.parse(horariosBrutos);
           } catch (_) {
-            horariosBrutos = horariosBrutos.split(/[
-,;]+/).map(s => s.trim()).filter(Boolean);
+            horariosBrutos = horariosBrutos.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
           }
         }
 
@@ -1304,8 +1301,7 @@ Motivo: ${st.motivo}.`);
           try {
             profs = JSON.parse(profs);
           } catch (_) {
-            profs = profs.split(/
-|;/).map(s => s.trim()).filter(Boolean);
+            profs = profs.split(/\n|;/).map(s => s.trim()).filter(Boolean);
           }
         }
         if (!Array.isArray(profs)) profs = [];
@@ -1604,7 +1600,6 @@ Motivo: ${st.motivo}.`);
         const colunas = dias.map(dia => {
           const encontrados = itensGrade.filter(it => {
             if (it.bloco.dia !== dia) return false;
-            // Verifica se o horário real da aula cobre este slot de 50 min (ajustando intervalo de 10 min entre blocos)
             const centroSlot = slot.minIni + 25;
             const fimReal = it.bloco.minFim + (it.bloco.aulas >= 3 ? 10 : 0);
             return centroSlot >= it.bloco.minInicio && centroSlot < fimReal;
@@ -2202,7 +2197,7 @@ Motivo: ${st.motivo}.`);
       const univ = document.getElementById('upUniv').value.trim();
       const curso = document.getElementById('upCurso').value.trim();
       const slug = `${univ}_${curso}`
-        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-zA-Z0-9]+/g, '_')
         .replace(/^_|_$/g, '')
         .slice(0, 60);
@@ -2449,11 +2444,9 @@ Motivo: ${st.motivo}.`);
           const textoPagina = [
             ordenarPorLinha(colEsq).map(it => it.str).join(' '),
             ordenarPorLinha(colDir).map(it => it.str).join(' ')
-          ].join('
-');
+          ].join('\n');
 
-          textoCompleto += textoPagina + '
-';
+          textoCompleto += textoPagina + '\n';
         }
 
         const matchCurso = textoCompleto.match(/Curso:\s*(\d{3})/i);
@@ -2469,19 +2462,19 @@ Motivo: ${st.motivo}.`);
           }
         }
 
-        const regexDisc = /([A-Z]{3}\d{4})([\s\S]{1,240}?)(?=[A-Z]{3}\d{4}|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
+        const regexDisc = /([A-Z]{3}\d{4})\b([\s\S]{1,240}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
         let match;
 
         while ((match = regexDisc.exec(textoCompleto)) !== null) {
           const codigo = match[1];
           const trecho = match[2];
 
-          if (/FI/.test(trecho)) continue;
+          if (/\bFI\b/.test(trecho)) continue;
 
-          const temFS = /FS/.test(trecho);
-          const temValidacao = /(V|R|Rv)/.test(trecho);
+          const temFS = /\bFS\b/.test(trecho);
+          const temValidacao = /\b(V|R|Rv)\b/.test(trecho);
 
-          const notasMatch = trecho.match(/(10(?:[.,]0)?|[0-9][.,]\d)/g);
+          const notasMatch = trecho.match(/\b(10(?:[.,]0)?|[0-9][.,]\d)\b/g);
           let notaAprovada = false;
           if (notasMatch) {
             notaAprovada = notasMatch.some(n => parseFloat(n.replace(',', '.')) >= 6.0);
@@ -2503,17 +2496,16 @@ Motivo: ${st.motivo}.`);
           });
           fallbackGlobal.push(items.map(it => it.str).join(' '));
         }
-        const textoLinear = fallbackGlobal.join('
-');
-        const regexFallback = /([A-Z]{3}\d{4})([\s\S]{1,120}?)(?=[A-Z]{3}\d{4}|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
+        const textoLinear = fallbackGlobal.join('\n');
+        const regexFallback = /([A-Z]{3}\d{4})\b([\s\S]{1,120}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
         while ((match = regexFallback.exec(textoLinear)) !== null) {
           const codigo = match[1];
           if (codigosAprovadosPdf.has(codigo)) continue;
           const trecho = match[2];
-          if (/FI/.test(trecho)) continue;
-          const temFS = /FS/.test(trecho);
-          const temValidacao = /(V|R|Rv)/.test(trecho);
-          const notasMatch = trecho.match(/(10(?:[.,]0)?|[0-9][.,]\d)/g);
+          if (/\bFI\b/.test(trecho)) continue;
+          const temFS = /\bFS\b/.test(trecho);
+          const temValidacao = /\b(V|R|Rv)\b/.test(trecho);
+          const notasMatch = trecho.match(/\b(10(?:[.,]0)?|[0-9][.,]\d)\b/g);
           const notaAprovada = notasMatch ? notasMatch.some(n => parseFloat(n.replace(',', '.')) >= 6.0) : false;
           if ((temFS && notaAprovada) || temValidacao) {
             codigosAprovadosPdf.add(codigo);
@@ -2578,11 +2570,7 @@ Motivo: ${st.motivo}.`);
         renderizarGrade();
         renderizarOptativas();
 
-        alert(`✅ Histórico lido com sucesso!
-
-• ${codigosAprovadosPdf.size} disciplinas aprovadas identificadas no PDF.
-• ${novasMarcadas} novas obrigatórias marcadas na grade.
-• ${novasOptativasMarcadas} nova(s) optativa(s) contabilizada(s).`);
+        alert(`✅ Histórico lido com sucesso!\n\n• ${codigosAprovadosPdf.size} disciplinas aprovadas identificadas no PDF.\n• ${novasMarcadas} novas obrigatórias marcadas na grade.\n• ${novasOptativasMarcadas} nova(s) optativa(s) contabilizada(s).`);
       } catch (err) {
         console.error(err);
         alert('Não foi possível ler este PDF. Verifique se é o PDF original do Histórico Escolar emitido pelo CAGR/UFSC.');
