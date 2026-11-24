@@ -1223,7 +1223,9 @@
       } else {
         const st = verificarElegibilidade(disc, aprovadas, calcularCHConcluida());
         if (st.status === 'bloqueada') {
-          alert(`🔒 Não é possível concluir ${disc.codigo} (${disc.nome}) ainda.\n\nMotivo: ${st.motivo}.`);
+          alert(`🔒 Não é possível concluir ${disc.codigo} (${disc.nome}) ainda.
+
+Motivo: ${st.motivo}.`);
           return;
         }
         aprovadas.add(codigo);
@@ -1290,7 +1292,8 @@
           try {
             horariosBrutos = JSON.parse(horariosBrutos);
           } catch (_) {
-            horariosBrutos = horariosBrutos.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+            horariosBrutos = horariosBrutos.split(/[
+,;]+/).map(s => s.trim()).filter(Boolean);
           }
         }
 
@@ -1301,7 +1304,8 @@
           try {
             profs = JSON.parse(profs);
           } catch (_) {
-            profs = profs.split(/\n|;/).map(s => s.trim()).filter(Boolean);
+            profs = profs.split(/
+|;/).map(s => s.trim()).filter(Boolean);
           }
         }
         if (!Array.isArray(profs)) profs = [];
@@ -1325,7 +1329,6 @@
       }
     }
 
-    // Converte formatos da UFSC ("2.1010-2/CTJ-U102" ou objeto {dia: 2, inicio: "10:10", aulas: 2, sala: "CTJ-U102"}) em minutos
     function parsearBlocosHorario(lista) {
       if (!Array.isArray(lista)) return [];
       const resultado = [];
@@ -1559,46 +1562,74 @@
         return;
       }
 
-      const faixasPadrao = [
-        { inicio: '07:30', fim: '09:10', minIni: 450, minFim: 550 },
-        { inicio: '09:10', fim: '10:10', minIni: 550, minFim: 610 },
-        { inicio: '10:10', fim: '11:50', minIni: 610, minFim: 710 },
-        { inicio: '13:30', fim: '15:10', minIni: 810, minFim: 910 },
-        { inicio: '15:10', fim: '17:00', minIni: 910, minFim: 1020 },
-        { inicio: '17:10', fim: '18:30', minIni: 1030, minFim: 1110 },
-        { inicio: '18:30', fim: '20:20', minIni: 1110, minFim: 1220 },
-        { inicio: '20:20', fim: '22:00', minIni: 1220, minFim: 1320 }
+      // Horários oficiais UFSC aula a aula (1 crédito = 1 bloco de 50 min)
+      const horariosAulaUfsc = [
+        { inicio: '07:30', fim: '08:20', minIni: 450, minFim: 500 },
+        { inicio: '08:20', fim: '09:10', minIni: 500, minFim: 550 },
+        { inicio: '09:10', fim: '10:00', minIni: 550, minFim: 600 },
+        { inicio: '10:10', fim: '11:00', minIni: 610, minFim: 660 },
+        { inicio: '11:00', fim: '11:50', minIni: 660, minFim: 710 },
+        { inicio: '13:30', fim: '14:20', minIni: 810, minFim: 860 },
+        { inicio: '14:20', fim: '15:10', minIni: 860, minFim: 910 },
+        { inicio: '15:10', fim: '16:00', minIni: 910, minFim: 960 },
+        { inicio: '16:20', fim: '17:10', minIni: 980, minFim: 1030 },
+        { inicio: '17:10', fim: '18:00', minIni: 1030, minFim: 1080 },
+        { inicio: '18:30', fim: '19:20', minIni: 1110, minFim: 1160 },
+        { inicio: '19:20', fim: '20:10', minIni: 1160, minFim: 1210 },
+        { inicio: '20:20', fim: '21:10', minIni: 1220, minFim: 1270 },
+        { inicio: '21:10', fim: '22:00', minIni: 1270, minFim: 1320 }
       ];
 
+      // Adiciona dinamicamente qualquer horário fora dos slots padrão (ex: 18:00)
+      const todosSlots = [...horariosAulaUfsc];
+      itensGrade.forEach(it => {
+        for (let k = 0; k < (it.bloco.aulas || 1); k++) {
+          const ini = it.bloco.minInicio + k * 50;
+          const fim = ini + 50;
+          const jaExiste = todosSlots.some(s => Math.abs(s.minIni - ini) <= 10);
+          if (!jaExiste) {
+            todosSlots.push({
+              inicio: formatarMinutosHora(ini),
+              fim: formatarMinutosHora(fim),
+              minIni: ini,
+              minFim: fim
+            });
+          }
+        }
+      });
+      todosSlots.sort((a, b) => a.minIni - b.minIni);
+
       const dias = ['2', '3', '4', '5', '6', '7'];
-      const linhasTabela = faixasPadrao.map(faixa => {
+      const linhasTabela = todosSlots.map(slot => {
         const colunas = dias.map(dia => {
-          const encontrados = itensGrade.filter(it =>
-            it.bloco.dia === dia &&
-            it.bloco.minInicio < faixa.minFim &&
-            faixa.minIni < it.bloco.minFim
-          );
+          const encontrados = itensGrade.filter(it => {
+            if (it.bloco.dia !== dia) return false;
+            // Verifica se o horário real da aula cobre este slot de 50 min (ajustando intervalo de 10 min entre blocos)
+            const centroSlot = slot.minIni + 25;
+            const fimReal = it.bloco.minFim + (it.bloco.aulas >= 3 ? 10 : 0);
+            return centroSlot >= it.bloco.minInicio && centroSlot < fimReal;
+          });
 
           if (encontrados.length === 0) {
-            return `<td class="border border-slate-200 p-2 bg-slate-50/40"></td>`;
+            return `<td class="border border-slate-200 px-2 py-1.5 bg-slate-50/40"></td>`;
           }
 
           const temConflito = encontrados.length > 1;
           const cards = encontrados.map(it => `
-            <div class="rounded-lg p-2 text-[11px] leading-snug ${temConflito ? 'bg-rose-100 border border-rose-300 text-rose-900' : 'bg-indigo-50 border border-indigo-200 text-indigo-950'}">
+            <div class="rounded-lg px-2 py-1.5 text-[11px] leading-snug ${temConflito ? 'bg-rose-100 border border-rose-300 text-rose-900' : 'bg-indigo-50 border border-indigo-200 text-indigo-950'}">
               <div class="font-extrabold">${escaparHtml(it.codigo)} · T.${escaparHtml(it.turma)}</div>
               <div class="font-semibold truncate max-w-[140px]">${escaparHtml(it.nome)}</div>
-              <div class="text-[10px] opacity-80 mt-0.5">${escaparHtml(it.bloco.inicio)}–${escaparHtml(it.bloco.fim)}${it.bloco.sala ? ` · ${escaparHtml(it.bloco.sala)}` : ''}</div>
+              <div class="text-[10px] opacity-80">${it.bloco.sala ? escaparHtml(it.bloco.sala) : `${escaparHtml(it.bloco.inicio)} (${it.bloco.aulas}a)`}</div>
               <div class="text-[10px] italic truncate max-w-[140px]">${escaparHtml(it.professores)}</div>
             </div>
           `).join('<div class="my-1 text-[10px] font-bold text-rose-600 text-center">⚠️ CHOQUE</div>');
 
-          return `<td class="border border-slate-200 p-1.5 align-top">${cards}</td>`;
+          return `<td class="border border-slate-200 p-1 align-top">${cards}</td>`;
         }).join('');
 
         return `
           <tr>
-            <td class="border border-slate-200 px-2.5 py-2 text-[11px] font-bold text-slate-600 bg-slate-50 whitespace-nowrap">${faixa.inicio}<br><span class="font-normal text-slate-400">${faixa.fim}</span></td>
+            <td class="border border-slate-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 bg-slate-50 whitespace-nowrap">${slot.inicio}<span class="font-normal text-slate-400 block text-[10px]">${slot.fim}</span></td>
             ${colunas}
           </tr>
         `;
@@ -2047,6 +2078,7 @@
       aprovadas = new Set();
       optativasConcluidas = [];
       semestresPlanejados = [];
+      ofertasTurmasCache = [];
       Object.keys(localStorage)
         .filter(k => k.startsWith('fx_'))
         .forEach(k => localStorage.removeItem(k));
@@ -2170,7 +2202,7 @@
       const univ = document.getElementById('upUniv').value.trim();
       const curso = document.getElementById('upCurso').value.trim();
       const slug = `${univ}_${curso}`
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
         .replace(/[^a-zA-Z0-9]+/g, '_')
         .replace(/^_|_$/g, '')
         .slice(0, 60);
@@ -2417,9 +2449,11 @@
           const textoPagina = [
             ordenarPorLinha(colEsq).map(it => it.str).join(' '),
             ordenarPorLinha(colDir).map(it => it.str).join(' ')
-          ].join('\n');
+          ].join('
+');
 
-          textoCompleto += textoPagina + '\n';
+          textoCompleto += textoPagina + '
+';
         }
 
         const matchCurso = textoCompleto.match(/Curso:\s*(\d{3})/i);
@@ -2435,19 +2469,19 @@
           }
         }
 
-        const regexDisc = /([A-Z]{3}\d{4})\b([\s\S]{1,240}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
+        const regexDisc = /([A-Z]{3}\d{4})([\s\S]{1,240}?)(?=[A-Z]{3}\d{4}|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
         let match;
 
         while ((match = regexDisc.exec(textoCompleto)) !== null) {
           const codigo = match[1];
           const trecho = match[2];
 
-          if (/\bFI\b/.test(trecho)) continue;
+          if (/FI/.test(trecho)) continue;
 
-          const temFS = /\bFS\b/.test(trecho);
-          const temValidacao = /\b(V|R|Rv)\b/.test(trecho);
+          const temFS = /FS/.test(trecho);
+          const temValidacao = /(V|R|Rv)/.test(trecho);
 
-          const notasMatch = trecho.match(/\b(10(?:[.,]0)?|[0-9][.,]\d)\b/g);
+          const notasMatch = trecho.match(/(10(?:[.,]0)?|[0-9][.,]\d)/g);
           let notaAprovada = false;
           if (notasMatch) {
             notaAprovada = notasMatch.some(n => parseFloat(n.replace(',', '.')) >= 6.0);
@@ -2469,16 +2503,17 @@
           });
           fallbackGlobal.push(items.map(it => it.str).join(' '));
         }
-        const textoLinear = fallbackGlobal.join('\n');
-        const regexFallback = /([A-Z]{3}\d{4})\b([\s\S]{1,120}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
+        const textoLinear = fallbackGlobal.join('
+');
+        const regexFallback = /([A-Z]{3}\d{4})([\s\S]{1,120}?)(?=[A-Z]{3}\d{4}|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
         while ((match = regexFallback.exec(textoLinear)) !== null) {
           const codigo = match[1];
           if (codigosAprovadosPdf.has(codigo)) continue;
           const trecho = match[2];
-          if (/\bFI\b/.test(trecho)) continue;
-          const temFS = /\bFS\b/.test(trecho);
-          const temValidacao = /\b(V|R|Rv)\b/.test(trecho);
-          const notasMatch = trecho.match(/\b(10(?:[.,]0)?|[0-9][.,]\d)\b/g);
+          if (/FI/.test(trecho)) continue;
+          const temFS = /FS/.test(trecho);
+          const temValidacao = /(V|R|Rv)/.test(trecho);
+          const notasMatch = trecho.match(/(10(?:[.,]0)?|[0-9][.,]\d)/g);
           const notaAprovada = notasMatch ? notasMatch.some(n => parseFloat(n.replace(',', '.')) >= 6.0) : false;
           if ((temFS && notaAprovada) || temValidacao) {
             codigosAprovadosPdf.add(codigo);
@@ -2543,7 +2578,11 @@
         renderizarGrade();
         renderizarOptativas();
 
-        alert(`✅ Histórico lido com sucesso!\n\n• ${codigosAprovadosPdf.size} disciplinas aprovadas identificadas no PDF.\n• ${novasMarcadas} novas obrigatórias marcadas na grade.\n• ${novasOptativasMarcadas} nova(s) optativa(s) contabilizada(s).`);
+        alert(`✅ Histórico lido com sucesso!
+
+• ${codigosAprovadosPdf.size} disciplinas aprovadas identificadas no PDF.
+• ${novasMarcadas} novas obrigatórias marcadas na grade.
+• ${novasOptativasMarcadas} nova(s) optativa(s) contabilizada(s).`);
       } catch (err) {
         console.error(err);
         alert('Não foi possível ler este PDF. Verifique se é o PDF original do Histórico Escolar emitido pelo CAGR/UFSC.');
