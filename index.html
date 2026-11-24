@@ -168,7 +168,7 @@
       <div class="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50">
         <div>
           <h2 class="text-lg font-bold text-slate-900">Simulador Multi-Semestres até a Formatura</h2>
-          <p class="text-xs text-slate-500">Monte os próximos semestres em cascata. Cada semestre destrava automaticamente os pré-requisitos do seguinte.</p>
+          <p class="text-xs text-slate-500">Monte os próximos semestres em cascata, escolha turmas/professores e verifique choques de horário.</p>
         </div>
         <div class="flex items-center gap-3">
           <div class="text-right">
@@ -180,8 +180,29 @@
         </div>
       </div>
 
+      <!-- Banner de Referência de Horários (ex: usando 2027.1 como base para semestres futuros) -->
+      <div id="bannerReferenciaHorarios" class="hidden px-6 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-900 text-xs flex flex-wrap items-center justify-between gap-2">
+        <span id="textoReferenciaHorarios">📅 Usando os horários e professores de <strong>2027.1</strong> como base. Para semestres futuros, as ofertas podem sofrer alterações antes da matrícula.</span>
+      </div>
+
       <div id="conteudoPlanejador" class="p-6 overflow-x-auto flex-1 flex gap-4 custom-scroll bg-slate-100/70">
         <!-- Colunas de semestres geradas via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Grade Horária Visual da Semana (Semestre Planejado) -->
+  <div id="modalGradeHoraria" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[88vh] flex flex-col overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
+        <div>
+          <h3 id="tituloGradeHoraria" class="text-base sm:text-lg font-extrabold text-slate-900">Grade Horária Semanal</h3>
+          <p id="subtituloGradeHoraria" class="text-xs text-slate-500">Distribuição semanal das turmas selecionadas</p>
+        </div>
+        <button onclick="fecharModal('modalGradeHoraria')" class="p-2 text-slate-400 hover:text-slate-700 text-lg font-bold" aria-label="Fechar">✕</button>
+      </div>
+      <div id="corpoGradeHoraria" class="p-5 overflow-auto flex-1 custom-scroll">
+        <!-- Tabela semanal renderizada via JS -->
       </div>
     </div>
   </div>
@@ -221,7 +242,7 @@
             <ul class="text-xs text-slate-600 space-y-2 mb-6">
               <li>✓ Leitura automática do Histórico PDF (UFSC)</li>
               <li>✓ Controle de créditos de Disciplinas Optativas</li>
-              <li>✓ Simulador Multi-Semestres em cascata</li>
+              <li>✓ Simulador Multi-Semestres com horários e professores</li>
               <li>✓ Sincronização na nuvem PC + Celular</li>
             </ul>
           </div>
@@ -506,6 +527,8 @@
     let aprovadas = new Set();
     let optativasConcluidas = [];
     let semestresPlanejados = [];
+    let ofertasTurmasCache = [];
+    let semestreReferenciaTurmas = '';
     let usuarioAtual = null;
     let planoUsuario = 'gratis';
     let planoExpiraEm = null;
@@ -515,6 +538,15 @@
 
     // Lista centralizada das instituições cujo PDF de Histórico Escolar já tem leitor integrado
     const UNIVERSIDADES_HISTORICO_SUPORTADAS = ['UFSC'];
+
+    const DIAS_SEMANA_UFSC = {
+      '2': 'Seg',
+      '3': 'Ter',
+      '4': 'Qua',
+      '5': 'Qui',
+      '6': 'Sex',
+      '7': 'Sáb'
+    };
 
     function escaparHtml(str) {
       return String(str ?? '')
@@ -828,6 +860,7 @@
       atualizarAvisoHistorico();
       renderizarGrade();
       renderizarOptativas();
+      carregarOfertasTurmas();
     }
 
     function atualizarAvisoHistorico() {
@@ -1232,15 +1265,201 @@
     }
 
     // =========================================================================
+    // OFERTAS DE TURMAS, HORÁRIOS, PROFESSORES E DETECÇÃO DE CHOQUES (PRO)
+    // =========================================================================
+    async function carregarOfertasTurmas() {
+      ofertasTurmasCache = [];
+      semestreReferenciaTurmas = '';
+      if (!cursoAtual) return;
+
+      const { data, error } = await supabaseClient
+        .from('ofertas_turmas')
+        .select('*')
+        .eq('universidade', cursoAtual.universidade)
+        .eq('campus', cursoAtual.campus);
+
+      if (error || !data || data.length === 0) return;
+
+      ofertasTurmasCache = data.map(row => {
+        const codDisc = (row.disciplina_codigo || row.codigo || row.disciplina || '').trim().toUpperCase();
+        const turma = String(row.turma || row.codigo_turma || '').trim();
+        const semRef = String(row.semestre_referencia || row.semestre || '').trim();
+
+        let horariosBrutos = row.horarios ?? row.horario ?? row.horarios_locais ?? [];
+        if (typeof horariosBrutos === 'string') {
+          try {
+            horariosBrutos = JSON.parse(horariosBrutos);
+          } catch (_) {
+            horariosBrutos = horariosBrutos.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+          }
+        }
+
+        const blocos = parsearBlocosHorario(horariosBrutos);
+
+        let profs = row.professores ?? row.professor ?? row.docentes ?? [];
+        if (typeof profs === 'string') {
+          try {
+            profs = JSON.parse(profs);
+          } catch (_) {
+            profs = profs.split(/\n|;/).map(s => s.trim()).filter(Boolean);
+          }
+        }
+        if (!Array.isArray(profs)) profs = [];
+
+        return {
+          id: row.id || `${codDisc}_${turma}`,
+          disciplina_codigo: codDisc,
+          turma,
+          semestre_referencia: semRef,
+          curso_reserva: String(row.curso_codigo || row.curso || '').trim(),
+          vagas: row.vagas_ofertadas ?? row.vagas ?? null,
+          blocos,
+          professores: profs
+        };
+      });
+
+      const semestresEncontrados = [...new Set(ofertasTurmasCache.map(t => t.semestre_referencia).filter(Boolean))].sort();
+      if (semestresEncontrados.length > 0) {
+        const bruto = semestresEncontrados[semestresEncontrados.length - 1];
+        semestreReferenciaTurmas = bruto.length === 5 && !bruto.includes('.') ? `${bruto.slice(0,4)}.${bruto.slice(4)}` : bruto;
+      }
+    }
+
+    // Converte formatos da UFSC ("2.1010-2/CTJ-U102" ou objeto {dia: 2, inicio: "10:10", aulas: 2, sala: "CTJ-U102"}) em minutos
+    function parsearBlocosHorario(lista) {
+      if (!Array.isArray(lista)) return [];
+      const resultado = [];
+
+      lista.forEach(item => {
+        if (!item) return;
+
+        if (typeof item === 'object') {
+          const dia = String(item.dia || '').trim();
+          const inicio = String(item.inicio || item.hora || '').trim();
+          const aulas = Number(item.aulas || item.qtd_aulas || 2);
+          const sala = String(item.sala || item.local || '').trim();
+          const minInicio = horaParaMinutos(inicio);
+          if (dia && minInicio !== null) {
+            resultado.push({
+              dia,
+              inicio: formatarMinutosHora(minInicio),
+              fim: formatarMinutosHora(minInicio + aulas * 50),
+              minInicio,
+              minFim: minInicio + aulas * 50,
+              aulas,
+              sala
+            });
+          }
+          return;
+        }
+
+        const str = String(item).trim();
+        const regex = /([2-7])\.(\d{4})-(\d+)(?:\/([^\s,;]+))?/g;
+        let m;
+        while ((m = regex.exec(str)) !== null) {
+          const dia = m[1];
+          const hhmm = `${m[2].slice(0, 2)}:${m[2].slice(2, 4)}`;
+          const aulas = Number(m[3]);
+          const sala = (m[4] || '').trim();
+          const minInicio = horaParaMinutos(hhmm);
+          if (minInicio !== null) {
+            resultado.push({
+              dia,
+              inicio: hhmm,
+              fim: formatarMinutosHora(minInicio + aulas * 50),
+              minInicio,
+              minFim: minInicio + aulas * 50,
+              aulas,
+              sala
+            });
+          }
+        }
+      });
+
+      return resultado;
+    }
+
+    function horaParaMinutos(hhmm) {
+      const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/);
+      if (!m) return null;
+      return Number(m[1]) * 60 + Number(m[2]);
+    }
+
+    function formatarMinutosHora(totalMin) {
+      const h = Math.floor(totalMin / 60);
+      const min = totalMin % 60;
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    }
+
+    function formatarResumoHorarioTurma(turmaObj) {
+      if (!turmaObj || !turmaObj.blocos || turmaObj.blocos.length === 0) return 'Horário a definir';
+      return turmaObj.blocos
+        .map(b => `${DIAS_SEMANA_UFSC[b.dia] || b.dia} ${b.inicio} (${b.aulas}a)`)
+        .join(' · ');
+    }
+
+    // Busca TODAS as turmas com o mesmo código de disciplina (independente do curso reservado)
+    function buscarTurmasDaDisciplina(codigoDisciplina) {
+      const cod = String(codigoDisciplina || '').trim().toUpperCase();
+      const todas = ofertasTurmasCache.filter(t => t.disciplina_codigo === cod);
+      const codCursoAluno = String(cursoAtual?.curso_codigo || '').trim();
+
+      return [...todas].sort((a, b) => {
+        const aReserva = a.curso_reserva === codCursoAluno || a.turma.includes(codCursoAluno) ? 0 : 1;
+        const bReserva = b.curso_reserva === codCursoAluno || b.turma.includes(codCursoAluno) ? 0 : 1;
+        if (aReserva !== bReserva) return aReserva - bReserva;
+        return a.turma.localeCompare(b.turma);
+      });
+    }
+
+    function detectarChoquesNoSemestre(sem) {
+      const turmasEscolhidas = sem.turmas || {};
+      const materiasComTurma = sem.materias
+        .map(cod => {
+          const turmaCodigo = turmasEscolhidas[cod];
+          if (!turmaCodigo) return null;
+          const obj = buscarTurmasDaDisciplina(cod).find(t => t.turma === turmaCodigo);
+          return obj ? { codigo: cod, turmaObj: obj } : null;
+        })
+        .filter(Boolean);
+
+      const choquesPorMateria = {};
+
+      for (let i = 0; i < materiasComTurma.length; i++) {
+        for (let j = i + 1; j < materiasComTurma.length; j++) {
+          const m1 = materiasComTurma[i];
+          const m2 = materiasComTurma[j];
+
+          for (const b1 of m1.turmaObj.blocos) {
+            for (const b2 of m2.turmaObj.blocos) {
+              if (b1.dia === b2.dia && b1.minInicio < b2.minFim && b2.minInicio < b1.minFim) {
+                const desc = `${DIAS_SEMANA_UFSC[b1.dia] || b1.dia} ${b1.inicio}`;
+                if (!choquesPorMateria[m1.codigo]) choquesPorMateria[m1.codigo] = [];
+                if (!choquesPorMateria[m2.codigo]) choquesPorMateria[m2.codigo] = [];
+                choquesPorMateria[m1.codigo].push(`${m2.codigo} (${desc})`);
+                choquesPorMateria[m2.codigo].push(`${m1.codigo} (${desc})`);
+              }
+            }
+          }
+        }
+      }
+
+      return choquesPorMateria;
+    }
+
+    // =========================================================================
     // PLANEJADOR MULTI-SEMESTRES ATÉ A FORMATURA (PRO)
     // =========================================================================
-    function abrirPlanejador() {
+    async function abrirPlanejador() {
       if (planoUsuario === 'gratis') {
         abrirModalPlanos();
         return;
       }
       if (semestresPlanejados.length === 0) {
-        semestresPlanejados.push({ nome: 'Próximo Semestre (1)', materias: [], optativas_ha: 0 });
+        semestresPlanejados.push({ nome: 'Próximo Semestre (1)', materias: [], optativas_ha: 0, turmas: {} });
+      }
+      if (ofertasTurmasCache.length === 0) {
+        await carregarOfertasTurmas();
       }
       renderizarPlanejador();
       document.getElementById('modalPlanejador').classList.remove('hidden');
@@ -1248,7 +1467,7 @@
 
     function adicionarSemestre() {
       const idx = semestresPlanejados.length + 1;
-      semestresPlanejados.push({ nome: `Semestre +${idx}`, materias: [], optativas_ha: 0 });
+      semestresPlanejados.push({ nome: `Semestre +${idx}`, materias: [], optativas_ha: 0, turmas: {} });
       salvarProgresso();
       renderizarPlanejador();
       const container = document.getElementById('conteudoPlanejador');
@@ -1259,6 +1478,7 @@
       if (semestresPlanejados.length <= 1) {
         semestresPlanejados[0].materias = [];
         semestresPlanejados[0].optativas_ha = 0;
+        semestresPlanejados[0].turmas = {};
       } else {
         semestresPlanejados.splice(semIdx, 1);
         semestresPlanejados.forEach((s, i) => {
@@ -1271,9 +1491,23 @@
 
     function toggleMateriaSemestre(semIdx, codigo) {
       const sem = semestresPlanejados[semIdx];
+      if (!sem.turmas) sem.turmas = {};
       const pos = sem.materias.indexOf(codigo);
-      if (pos >= 0) sem.materias.splice(pos, 1);
-      else sem.materias.push(codigo);
+      if (pos >= 0) {
+        sem.materias.splice(pos, 1);
+        delete sem.turmas[codigo];
+      } else {
+        sem.materias.push(codigo);
+      }
+      salvarProgresso();
+      renderizarPlanejador();
+    }
+
+    function selecionarTurmaSemestre(semIdx, codigoDisciplina, codigoTurma) {
+      const sem = semestresPlanejados[semIdx];
+      if (!sem.turmas) sem.turmas = {};
+      if (!codigoTurma) delete sem.turmas[codigoDisciplina];
+      else sem.turmas[codigoDisciplina] = codigoTurma;
       salvarProgresso();
       renderizarPlanejador();
     }
@@ -1285,21 +1519,142 @@
       renderizarPlanejador();
     }
 
+    function abrirGradeHorariaSemestre(semIdx) {
+      const sem = semestresPlanejados[semIdx];
+      if (!sem) return;
+      const disciplinas = cursoAtual?.disciplinas || [];
+      const turmasEscolhidas = sem.turmas || {};
+
+      document.getElementById('tituloGradeHoraria').textContent = `📅 Grade Horária — ${sem.nome}`;
+      document.getElementById('subtituloGradeHoraria').textContent = semestreReferenciaTurmas
+        ? `Base de referência: ${semestreReferenciaTurmas} (sujeita a alterações pela coordenação em semestres futuros)`
+        : 'Distribuição semanal das turmas selecionadas';
+
+      const itensGrade = [];
+      sem.materias.forEach(cod => {
+        const disc = disciplinas.find(d => d.codigo === cod);
+        const turmaCod = turmasEscolhidas[cod];
+        if (!turmaCod) return;
+        const turmaObj = buscarTurmasDaDisciplina(cod).find(t => t.turma === turmaCod);
+        if (!turmaObj) return;
+        turmaObj.blocos.forEach(b => {
+          itensGrade.push({
+            codigo: cod,
+            nome: disc?.nome || cod,
+            turma: turmaCod,
+            professores: turmaObj.professores.join(', ') || 'A definir',
+            bloco: b
+          });
+        });
+      });
+
+      if (itensGrade.length === 0) {
+        document.getElementById('corpoGradeHoraria').innerHTML = `
+          <div class="text-center py-12 text-xs text-slate-500 space-y-2">
+            <p class="font-bold text-slate-700 text-sm">Nenhuma turma com horário selecionado neste semestre</p>
+            <p>Marque as disciplinas desejadas no semestre e escolha a turma no seletor abaixo de cada matéria para montar sua grade semanal.</p>
+          </div>
+        `;
+        document.getElementById('modalGradeHoraria').classList.remove('hidden');
+        return;
+      }
+
+      const faixasPadrao = [
+        { inicio: '07:30', fim: '09:10', minIni: 450, minFim: 550 },
+        { inicio: '09:10', fim: '10:10', minIni: 550, minFim: 610 },
+        { inicio: '10:10', fim: '11:50', minIni: 610, minFim: 710 },
+        { inicio: '13:30', fim: '15:10', minIni: 810, minFim: 910 },
+        { inicio: '15:10', fim: '17:00', minIni: 910, minFim: 1020 },
+        { inicio: '17:10', fim: '18:30', minIni: 1030, minFim: 1110 },
+        { inicio: '18:30', fim: '20:20', minIni: 1110, minFim: 1220 },
+        { inicio: '20:20', fim: '22:00', minIni: 1220, minFim: 1320 }
+      ];
+
+      const dias = ['2', '3', '4', '5', '6', '7'];
+      const linhasTabela = faixasPadrao.map(faixa => {
+        const colunas = dias.map(dia => {
+          const encontrados = itensGrade.filter(it =>
+            it.bloco.dia === dia &&
+            it.bloco.minInicio < faixa.minFim &&
+            faixa.minIni < it.bloco.minFim
+          );
+
+          if (encontrados.length === 0) {
+            return `<td class="border border-slate-200 p-2 bg-slate-50/40"></td>`;
+          }
+
+          const temConflito = encontrados.length > 1;
+          const cards = encontrados.map(it => `
+            <div class="rounded-lg p-2 text-[11px] leading-snug ${temConflito ? 'bg-rose-100 border border-rose-300 text-rose-900' : 'bg-indigo-50 border border-indigo-200 text-indigo-950'}">
+              <div class="font-extrabold">${escaparHtml(it.codigo)} · T.${escaparHtml(it.turma)}</div>
+              <div class="font-semibold truncate max-w-[140px]">${escaparHtml(it.nome)}</div>
+              <div class="text-[10px] opacity-80 mt-0.5">${escaparHtml(it.bloco.inicio)}–${escaparHtml(it.bloco.fim)}${it.bloco.sala ? ` · ${escaparHtml(it.bloco.sala)}` : ''}</div>
+              <div class="text-[10px] italic truncate max-w-[140px]">${escaparHtml(it.professores)}</div>
+            </div>
+          `).join('<div class="my-1 text-[10px] font-bold text-rose-600 text-center">⚠️ CHOQUE</div>');
+
+          return `<td class="border border-slate-200 p-1.5 align-top">${cards}</td>`;
+        }).join('');
+
+        return `
+          <tr>
+            <td class="border border-slate-200 px-2.5 py-2 text-[11px] font-bold text-slate-600 bg-slate-50 whitespace-nowrap">${faixa.inicio}<br><span class="font-normal text-slate-400">${faixa.fim}</span></td>
+            ${colunas}
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('corpoGradeHoraria').innerHTML = `
+        <table class="w-full border-collapse text-left min-w-[720px]">
+          <thead>
+            <tr class="bg-slate-100 text-xs font-extrabold text-slate-700">
+              <th class="border border-slate-200 px-2.5 py-2 w-20">Horário</th>
+              <th class="border border-slate-200 px-2.5 py-2">Segunda</th>
+              <th class="border border-slate-200 px-2.5 py-2">Terça</th>
+              <th class="border border-slate-200 px-2.5 py-2">Quarta</th>
+              <th class="border border-slate-200 px-2.5 py-2">Quinta</th>
+              <th class="border border-slate-200 px-2.5 py-2">Sexta</th>
+              <th class="border border-slate-200 px-2.5 py-2">Sábado</th>
+            </tr>
+          </thead>
+          <tbody>${linhasTabela}</tbody>
+        </table>
+      `;
+
+      document.getElementById('modalGradeHoraria').classList.remove('hidden');
+    }
+
     function renderizarPlanejador() {
       const container = document.getElementById('conteudoPlanejador');
+      const bannerRef = document.getElementById('bannerReferenciaHorarios');
+      const textoRef = document.getElementById('textoReferenciaHorarios');
+
+      if (ofertasTurmasCache.length > 0 && bannerRef && textoRef) {
+        bannerRef.classList.remove('hidden');
+        const labelSem = semestreReferenciaTurmas || '2027.1';
+        textoRef.innerHTML = `📅 Usando os horários e professores de <strong>${escaparHtml(labelSem)}</strong> como base (todas as turmas da disciplina disponíveis). <strong>Aviso:</strong> para semestres futuros, os horários podem mudar antes da matrícula.`;
+      } else if (bannerRef) {
+        bannerRef.classList.add('hidden');
+      }
+
       const disciplinas = cursoAtual.disciplinas || [];
       const metaOptHa = Number(cursoAtual?.complementares?.optativas_ha || 0);
       const optHaJaFeita = optativasConcluidas.reduce((acc, o) => acc + Number(o.ha || 0), 0);
+      const codCursoAluno = String(cursoAtual?.curso_codigo || '').trim();
 
       let acumulado = new Set(aprovadas);
       let optHaAcumulada = optHaJaFeita;
       let semestreConclusao = null;
 
       container.innerHTML = semestresPlanejados.map((sem, idx) => {
+        if (!sem.turmas) sem.turmas = {};
         const chAcum = disciplinas.filter(d => acumulado.has(d.codigo)).reduce((a, b) => a + b.ha, 0);
         const optHaSem = Number(sem.optativas_ha || 0);
         const aulasObr = disciplinas.filter(d => sem.materias.includes(d.codigo)).reduce((a, b) => a + b.aulas, 0);
         const aulasTotais = aulasObr + Math.round(optHaSem / 18);
+
+        const choquesMap = detectarChoquesNoSemestre(sem);
+        const totalChoques = Object.keys(choquesMap).length;
 
         const disponiveis = disciplinas.filter(d => {
           if (sem.materias.includes(d.codigo)) return true;
@@ -1318,18 +1673,61 @@
         }
 
         const alertaAulas = aulasTotais > 0 && (aulasTotais < cursoAtual.aulas_min || aulasTotais > cursoAtual.aulas_max)
-          ? `<span class="text-[11px] font-bold text-amber-600">⚠️ Fora do limite (${cursoAtual.aulas_min}-${cursoAtual.aulas_max} aulas)</span>`
-          : `<span class="text-[11px] font-semibold text-slate-500">${aulasTotais} / ${cursoAtual.aulas_max} aulas</span>`;
+          ? `<span class="text-[11px] font-bold text-amber-600 block">⚠️ Fora do limite (${cursoAtual.aulas_min}-${cursoAtual.aulas_max} aulas)</span>`
+          : `<span class="text-[11px] font-semibold text-slate-500 block">${aulasTotais} / ${cursoAtual.aulas_max} aulas</span>`;
 
         const listaHtml = disponiveis.map(d => {
           const marcada = sem.materias.includes(d.codigo);
+          const turmasDisc = marcada ? buscarTurmasDaDisciplina(d.codigo) : [];
+          const turmaSelecionadaCod = sem.turmas[d.codigo] || '';
+          const turmaSelecionadaObj = turmasDisc.find(t => t.turma === turmaSelecionadaCod);
+          const choquesDesta = choquesMap[d.codigo] || [];
+
+          let seletorTurmaHtml = '';
+          if (marcada && turmasDisc.length > 0) {
+            const optionsTurma = turmasDisc.map(t => {
+              const ehCursoAluno = t.curso_reserva === codCursoAluno || t.turma.includes(codCursoAluno);
+              const tagCurso = ehCursoAluno ? '★ ' : (t.curso_reserva ? `[C.${t.curso_reserva}] ` : '');
+              const resumoHor = formatarResumoHorarioTurma(t);
+              const profTxt = t.professores.length > 0 ? t.professores.join(' / ') : 'Prof. a definir';
+              return `<option value="${escaparHtml(t.turma)}" ${t.turma === turmaSelecionadaCod ? 'selected' : ''}>${tagCurso}T.${escaparHtml(t.turma)} · ${escaparHtml(resumoHor)} · ${escaparHtml(profTxt)}</option>`;
+            }).join('');
+
+            seletorTurmaHtml = `
+              <div onclick="event.stopPropagation()" class="mt-2 pt-2 border-t border-indigo-400/40 space-y-1">
+                <select onchange="selecionarTurmaSemestre(${idx}, '${d.codigo}', this.value)" aria-label="Escolher turma de ${d.codigo}" class="w-full text-[11px] rounded-md px-2 py-1 bg-white text-slate-800 border border-indigo-200 focus:outline-none">
+                  <option value="">Escolher turma / horário (${turmasDisc.length} opções)...</option>
+                  ${optionsTurma}
+                </select>
+                ${turmaSelecionadaObj ? `
+                  <div class="text-[10px] text-indigo-100 leading-tight">
+                    <div>🕒 ${escaparHtml(formatarResumoHorarioTurma(turmaSelecionadaObj))}</div>
+                    <div class="truncate">👨‍🏫 ${escaparHtml(turmaSelecionadaObj.professores.join(', ') || 'A definir')}</div>
+                  </div>
+                ` : ''}
+                ${choquesDesta.length > 0 ? `
+                  <div class="text-[10px] font-bold bg-rose-600 text-white px-2 py-1 rounded">
+                    ⚠️ Choque com ${escaparHtml([...new Set(choquesDesta)].join(', '))}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }
+
+          const estiloCard = marcada
+            ? (choquesDesta.length > 0
+                ? 'bg-rose-700 text-white border-rose-700 font-semibold'
+                : 'bg-indigo-600 text-white border-indigo-600 font-semibold')
+            : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-400';
+
           return `
-            <div onclick="toggleMateriaSemestre(${idx}, '${d.codigo}')" class="cursor-pointer p-2.5 rounded-lg border text-xs transition ${marcada ? 'bg-indigo-600 text-white border-indigo-600 font-semibold' : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-400'}">
+            <div onclick="toggleMateriaSemestre(${idx}, '${d.codigo}')" class="cursor-pointer p-2.5 rounded-lg border text-xs transition ${estiloCard}">
               <div class="flex justify-between">
                 <span>${d.codigo} · ${d.fase}ªF</span>
                 <span>${d.aulas}a</span>
               </div>
               <div class="truncate mt-0.5">${d.nome}</div>
+              ${seletorTurmaHtml}
             </div>
           `;
         }).join('');
@@ -1348,13 +1746,20 @@
           </div>
         ` : '';
 
+        const btnGradeSemanal = ofertasTurmasCache.length > 0 ? `
+          <button type="button" onclick="abrirGradeHorariaSemestre(${idx})" class="mt-2 w-full py-1.5 px-2.5 rounded-lg border text-[11px] font-semibold transition flex items-center justify-center gap-1.5 ${totalChoques > 0 ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100' : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}">
+            <span>📅 Ver Grade da Semana</span>
+            ${totalChoques > 0 ? `<span class="px-1.5 py-0.2 rounded bg-rose-600 text-white text-[10px]">Choque!</span>` : ''}
+          </button>
+        ` : '';
+
         const bordaCard = concluiuAqui ? 'border-2 border-emerald-500 ring-2 ring-emerald-100' : 'border border-slate-200';
         const tagFormatura = concluiuAqui
           ? `<span class="inline-block mb-2 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">🎓 Semestre de Formatura</span>`
           : '';
 
         return `
-          <div class="min-w-[290px] max-w-[290px] bg-white rounded-xl ${bordaCard} p-4 flex flex-col max-h-[68vh]">
+          <div class="min-w-[315px] max-w-[315px] bg-white rounded-xl ${bordaCard} p-4 flex flex-col max-h-[68vh]">
             ${tagFormatura}
             <div class="flex items-center justify-between pb-2 mb-3 border-b border-slate-100 gap-2">
               <div>
@@ -1369,6 +1774,7 @@
               ${listaHtml || '<p class="text-xs text-emerald-600 font-semibold py-4 text-center">🎉 Obrigatórias concluídas!</p>'}
             </div>
             ${blocoOptativasPlanejador}
+            ${btnGradeSemanal}
           </div>
         `;
       }).join('');
