@@ -108,11 +108,39 @@
     </div>
   </section>
 
-  <!-- Grade Curricular por Fases -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
+  <!-- Grade Curricular por Fases + Seção de Optativas -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
     <div id="gridFases" class="space-y-6">
       <div class="text-center py-16 text-slate-500 text-sm">Carregando disciplinas do banco de dados...</div>
     </div>
+
+    <!-- Seção de Disciplinas Optativas (PRO) -->
+    <section id="secaoOptativas" class="hidden bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-sm space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="text-base sm:text-lg font-extrabold text-slate-900">Disciplinas Optativas</h3>
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-600 text-white">PRO</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Contabilize os créditos optativos exigidos pelo currículo (1 crédito/aula = 18 H/A).</p>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <div class="text-right">
+            <div class="flex items-baseline justify-end gap-2">
+              <span id="optPct" class="text-xl font-extrabold text-indigo-600">0%</span>
+              <span id="optResumoCH" class="text-xs font-semibold text-slate-600">0 / 0 créd. (0 / 0 H/A)</span>
+            </div>
+            <div class="w-44 h-2 bg-slate-100 rounded-full overflow-hidden mt-1.5 ml-auto">
+              <div id="optBarraProgresso" class="h-full bg-indigo-600 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conteúdo dinâmico: cadeado para Grátis ou seletor + lista para PRO -->
+      <div id="conteudoOptativas"></div>
+    </section>
   </main>
 
   <!-- Rodapé com Isenção Institucional e Links LGPD -->
@@ -190,6 +218,7 @@
             </div>
             <ul class="text-xs text-slate-600 space-y-2 mb-6">
               <li>✓ Leitura automática do Histórico PDF (UFSC)</li>
+              <li>✓ Controle de créditos de Disciplinas Optativas</li>
               <li>✓ Simulador Multi-Semestres em cascata</li>
               <li>✓ Sincronização na nuvem PC + Celular</li>
             </ul>
@@ -210,7 +239,7 @@
             </div>
             <ul class="text-xs text-slate-600 space-y-2 mb-6">
               <li>✓ Tudo do Passe Semestral</li>
-              <li>✓ Previsão de formatura e travas de CH</li>
+              <li>✓ Previsão de formatura (obrigatórias + optativas)</li>
               <li>✓ Economia de 12% no ano letivo</li>
             </ul>
           </div>
@@ -463,7 +492,7 @@
 
   <script>
     // =========================================================================
-    // CONFIGURAÇÃO DO SUPABASE — COLE SUA CHAVE PÚBLICA (ANON KEY) NA LINHA ABAIXO
+    // CONFIGURAÇÃO DO SUPABASE
     // =========================================================================
     const SUPABASE_URL = 'https://oegfpaqskdpejcqaoail.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_Nru4Uq8LmrfmQZwuBbeAkQ_9URCwq9g';
@@ -473,6 +502,7 @@
     let catalogoCurriculos = [];
     let cursoAtual = null;
     let aprovadas = new Set();
+    let optativasConcluidas = [];
     let semestresPlanejados = [];
     let usuarioAtual = null;
     let planoUsuario = 'gratis';
@@ -484,7 +514,15 @@
     // Lista centralizada das instituições cujo PDF de Histórico Escolar já tem leitor integrado
     const UNIVERSIDADES_HISTORICO_SUPORTADAS = ['UFSC'];
 
-    // Traduz mensagens padrão de erro do Supabase Auth para Português
+    function escaparHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function traduzirErroAuth(msg) {
       if (!msg) return 'Ocorreu um erro inesperado.';
       if (msg.includes('Invalid login credentials')) return 'E-mail ou senha incorretos.';
@@ -532,13 +570,16 @@
       if (usuarioAtual) {
         const { data } = await supabaseClient
           .from('progresso_alunos')
-          .select('curriculo_id, aprovadas, semestres_planejados, updated_at')
+          .select('curriculo_id, aprovadas, optativas_feitas, semestres_planejados, updated_at')
           .eq('user_id', usuarioAtual.id)
           .order('updated_at', { ascending: false });
 
         if (data && data.length > 0) {
-          // Prioriza o currículo onde o aluno efetivamente marcou matérias ou planejou semestres
-          const comProgresso = data.find(r => (r.aprovadas && r.aprovadas.length > 0) || (r.semestres_planejados && r.semestres_planejados.length > 0));
+          const comProgresso = data.find(r =>
+            (r.aprovadas && r.aprovadas.length > 0) ||
+            (r.optativas_feitas && r.optativas_feitas.length > 0) ||
+            (r.semestres_planejados && r.semestres_planejados.length > 0)
+          );
           return (comProgresso || data[0]).curriculo_id;
         }
       }
@@ -548,6 +589,7 @@
     function renderizarTelaInicial() {
       cursoAtual = null;
       document.getElementById('barraMetricas')?.classList.add('hidden');
+      document.getElementById('secaoOptativas')?.classList.add('hidden');
       const container = document.getElementById('gridFases');
       const totalCurriculos = catalogoCurriculos.length;
       const faculdadesUnicas = [...new Set(catalogoCurriculos.map(c => `${c.universidade} (${c.campus})`))];
@@ -723,7 +765,6 @@
         descontoPioneiroDisponivel = Boolean(data.desconto_pioneiro_disponivel && !data.desconto_pioneiro_usado);
         if (data.plano) {
           planoExpiraEm = data.plano_expira_em || null;
-          // Verifica automaticamente se a assinatura venceu (pro_formatura não expira)
           if (data.plano !== 'gratis' && data.plano !== 'pro_formatura' && data.plano_expira_em && new Date() > new Date(data.plano_expira_em)) {
             planoUsuario = 'gratis';
             planoExpiraEm = null;
@@ -746,6 +787,7 @@
         btn.className = 'text-xs font-semibold px-3 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition';
       }
       atualizarAvisoHistorico();
+      if (cursoAtual) renderizarOptativas();
     }
 
     async function selecionarCurso(id) {
@@ -755,6 +797,7 @@
       localStorage.setItem('fx_ultimo_curriculo', id);
 
       aprovadas = new Set();
+      optativasConcluidas = [];
       semestresPlanejados = [];
 
       if (usuarioAtual) {
@@ -767,6 +810,7 @@
 
         if (data) {
           aprovadas = new Set(data.aprovadas || []);
+          optativasConcluidas = Array.isArray(data.optativas_feitas) ? data.optativas_feitas : [];
           semestresPlanejados = data.semestres_planejados || [];
         }
       } else {
@@ -774,12 +818,14 @@
         if (salvo) {
           const parsed = JSON.parse(salvo);
           aprovadas = new Set(parsed.aprovadas || []);
+          optativasConcluidas = Array.isArray(parsed.optativasConcluidas) ? parsed.optativasConcluidas : [];
           semestresPlanejados = parsed.semestresPlanejados || [];
         }
       }
 
       atualizarAvisoHistorico();
       renderizarGrade();
+      renderizarOptativas();
     }
 
     function atualizarAvisoHistorico() {
@@ -807,6 +853,7 @@
       if (!cursoAtual) return;
       const payload = {
         aprovadas: Array.from(aprovadas),
+        optativasConcluidas,
         semestresPlanejados
       };
       localStorage.setItem('fx_' + cursoAtual.id, JSON.stringify(payload));
@@ -816,6 +863,7 @@
           user_id: usuarioAtual.id,
           curriculo_id: cursoAtual.id,
           aprovadas: payload.aprovadas,
+          optativas_feitas: payload.optativasConcluidas,
           semestres_planejados: payload.semestresPlanejados,
           updated_at: new Date().toISOString()
         }, { onConflict: 'user_id,curriculo_id' });
@@ -930,13 +978,185 @@
       }).join('');
     }
 
+    // =========================================================================
+    // SEÇÃO DE DISCIPLINAS OPTATIVAS (PRO)
+    // =========================================================================
+    function renderizarOptativas() {
+      const secao = document.getElementById('secaoOptativas');
+      const conteudo = document.getElementById('conteudoOptativas');
+      if (!secao || !conteudo || !cursoAtual) return;
+
+      const metaOptHa = Number(cursoAtual?.complementares?.optativas_ha || 0);
+      if (metaOptHa <= 0 && optativasConcluidas.length === 0) {
+        secao.classList.add('hidden');
+        return;
+      }
+
+      secao.classList.remove('hidden');
+
+      const haFeita = optativasConcluidas.reduce((acc, o) => acc + Number(o.ha || 0), 0);
+      const credFeitos = Math.round(haFeita / 18);
+      const metaCred = Math.round(metaOptHa / 18);
+      const pct = metaOptHa > 0 ? Math.min(100, Math.round((haFeita / metaOptHa) * 100)) : 100;
+
+      document.getElementById('optPct').textContent = pct + '%';
+      document.getElementById('optResumoCH').textContent = metaOptHa > 0
+        ? `${credFeitos} / ${metaCred} créd. (${haFeita} / ${metaOptHa} H/A)`
+        : `${credFeitos} créd. (${haFeita} H/A)`;
+      document.getElementById('optBarraProgresso').style.width = pct + '%';
+
+      const ehPro = planoUsuario !== 'gratis';
+      if (!ehPro) {
+        conteudo.innerHTML = `
+          <div class="rounded-xl bg-slate-50 border border-slate-200 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="text-xs text-slate-600 space-y-0.5">
+              <p class="font-bold text-slate-800">Controle suas disciplinas optativas e créditos restantes</p>
+              <p>Adicione optativas do catálogo do curso ou de outros departamentos e acompanhe quanto falta para colar grau.</p>
+            </div>
+            <button type="button" onclick="abrirModalPlanos()" class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
+              🔒 Liberar no Plano PRO
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      const listaCatalogoOpt = Array.isArray(cursoAtual.optativas) ? cursoAtual.optativas : [];
+      const codigosJaAdicionados = new Set(optativasConcluidas.map(o => (o.codigo || '').toUpperCase()));
+      const disponiveisDropdown = listaCatalogoOpt.filter(o => !codigosJaAdicionados.has((o.codigo || '').toUpperCase()));
+
+      const optionsCatalogo = disponiveisDropdown.map(o => {
+        const cred = o.aulas || Math.round((o.ha || 0) / 18);
+        return `<option value="${escaparHtml(o.codigo)}">${escaparHtml(o.codigo)} — ${escaparHtml(o.nome)} (${cred} créd. · ${o.ha} H/A)</option>`;
+      }).join('');
+
+      const temCatalogo = disponiveisDropdown.length > 0;
+
+      const cardsOptativas = optativasConcluidas.map((o, idx) => {
+        const cred = o.aulas || Math.round((o.ha || 0) / 18);
+        return `
+          <div class="rounded-xl border border-indigo-200 bg-indigo-50/40 px-3.5 py-2.5 flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-extrabold text-indigo-700">${escaparHtml(o.codigo || 'OPT')}</span>
+                <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white border border-indigo-100 text-slate-600">${cred} créd. · ${o.ha} H/A</span>
+              </div>
+              <p class="text-xs font-semibold text-slate-800 truncate mt-0.5">${escaparHtml(o.nome)}</p>
+            </div>
+            <button type="button" onclick="removerOptativaConcluida(${idx})" title="Remover optativa" class="shrink-0 w-6 h-6 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 font-bold text-xs transition">
+              ✕
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      conteudo.innerHTML = `
+        <form onsubmit="adicionarOptativaConcluida(event)" class="space-y-3">
+          <div class="flex flex-col md:flex-row gap-2.5">
+            <select id="selectOptativaCatalogo" onchange="alternarModoOptativaManual()" class="flex-1 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              ${temCatalogo ? `<option value="">Selecione uma optativa do currículo...</option>${optionsCatalogo}` : ''}
+              <option value="__MANUAL__" ${!temCatalogo ? 'selected' : ''}>➕ Outra disciplina (Optativa livre / outro curso)</option>
+            </select>
+
+            <button type="submit" class="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold transition">
+              + Adicionar Optativa
+            </button>
+          </div>
+
+          <!-- Campos manuais para optativas livres ou de outros departamentos -->
+          <div id="boxOptativaManual" class="${temCatalogo ? 'hidden' : ''} grid grid-cols-1 sm:grid-cols-12 gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <input id="optManualCodigo" type="text" maxlength="15" placeholder="Código (ex: EMB5009)" class="sm:col-span-3 text-xs uppercase bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800" />
+            <input id="optManualNome" type="text" placeholder="Nome da disciplina optativa" class="sm:col-span-6 text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800" />
+            <select id="optManualCreditos" class="sm:col-span-3 text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800">
+              <option value="2">2 créditos (36 H/A)</option>
+              <option value="3">3 créditos (54 H/A)</option>
+              <option value="4" selected>4 créditos (72 H/A)</option>
+              <option value="5">5 créditos (90 H/A)</option>
+              <option value="6">6 créditos (108 H/A)</option>
+              <option value="1">1 crédito (18 H/A)</option>
+            </select>
+          </div>
+        </form>
+
+        ${optativasConcluidas.length > 0
+          ? `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">${cardsOptativas}</div>`
+          : `<p class="text-xs text-slate-400 pt-1">Nenhuma disciplina optativa adicionada ainda.</p>`}
+      `;
+    }
+
+    function alternarModoOptativaManual() {
+      const sel = document.getElementById('selectOptativaCatalogo');
+      const box = document.getElementById('boxOptativaManual');
+      if (!sel || !box) return;
+      if (sel.value === '__MANUAL__') box.classList.remove('hidden');
+      else box.classList.add('hidden');
+    }
+
+    async function adicionarOptativaConcluida(e) {
+      e.preventDefault();
+      if (!cursoAtual || planoUsuario === 'gratis') return;
+
+      const sel = document.getElementById('selectOptativaCatalogo');
+      if (!sel || !sel.value) {
+        alert('Selecione uma disciplina optativa na lista ou escolha a opção manual.');
+        return;
+      }
+
+      if (sel.value === '__MANUAL__') {
+        const codigo = (document.getElementById('optManualCodigo')?.value || '').trim().toUpperCase() || 'OPT-LIVRE';
+        const nome = (document.getElementById('optManualNome')?.value || '').trim();
+        const aulas = Number(document.getElementById('optManualCreditos')?.value || 4);
+        const ha = aulas * 18;
+
+        if (!nome) {
+          alert('Digite o nome da disciplina optativa.');
+          document.getElementById('optManualNome')?.focus();
+          return;
+        }
+
+        if (codigo !== 'OPT-LIVRE' && optativasConcluidas.some(o => o.codigo === codigo)) {
+          alert(`A disciplina ${codigo} já foi adicionada nas suas optativas.`);
+          return;
+        }
+
+        optativasConcluidas.push({ codigo, nome, ha, aulas, manual: true });
+      } else {
+        const codigo = sel.value;
+        const item = (cursoAtual.optativas || []).find(o => o.codigo === codigo);
+        if (!item) return;
+
+        if (optativasConcluidas.some(o => o.codigo === codigo)) {
+          alert(`A disciplina ${codigo} já foi adicionada nas suas optativas.`);
+          return;
+        }
+
+        const aulas = item.aulas || Math.round((item.ha || 0) / 18);
+        optativasConcluidas.push({
+          codigo: item.codigo,
+          nome: item.nome,
+          ha: item.ha,
+          aulas,
+          manual: false
+        });
+      }
+
+      await salvarProgresso();
+      renderizarOptativas();
+    }
+
+    async function removerOptativaConcluida(idx) {
+      if (planoUsuario === 'gratis') return;
+      optativasConcluidas.splice(idx, 1);
+      await salvarProgresso();
+      renderizarOptativas();
+    }
+
     function calcularCHConcluida() {
       return (cursoAtual?.disciplinas || [])
         .filter(d => aprovadas.has(d.codigo))
         .reduce((acc, d) => acc + d.ha, 0);
     }
 
-    // Remove em cascata matérias concluídas que perderam pré-requisito ou CH mínima após desmarcar algo
     function limparDependentesInvalidas() {
       const disciplinas = cursoAtual?.disciplinas || [];
       let houveRemocao = true;
@@ -1009,8 +1229,6 @@
       renderizarGrade();
     }
 
-
-
     // =========================================================================
     // PLANEJADOR MULTI-SEMESTRES ATÉ A FORMATURA (PRO)
     // =========================================================================
@@ -1020,7 +1238,7 @@
         return;
       }
       if (semestresPlanejados.length === 0) {
-        semestresPlanejados.push({ nome: 'Próximo Semestre (1)', materias: [] });
+        semestresPlanejados.push({ nome: 'Próximo Semestre (1)', materias: [], optativas_ha: 0 });
       }
       renderizarPlanejador();
       document.getElementById('modalPlanejador').classList.remove('hidden');
@@ -1028,7 +1246,7 @@
 
     function adicionarSemestre() {
       const idx = semestresPlanejados.length + 1;
-      semestresPlanejados.push({ nome: `Semestre +${idx}`, materias: [] });
+      semestresPlanejados.push({ nome: `Semestre +${idx}`, materias: [], optativas_ha: 0 });
       salvarProgresso();
       renderizarPlanejador();
       const container = document.getElementById('conteudoPlanejador');
@@ -1038,6 +1256,7 @@
     function removerSemestre(semIdx) {
       if (semestresPlanejados.length <= 1) {
         semestresPlanejados[0].materias = [];
+        semestresPlanejados[0].optativas_ha = 0;
       } else {
         semestresPlanejados.splice(semIdx, 1);
         semestresPlanejados.forEach((s, i) => {
@@ -1057,15 +1276,28 @@
       renderizarPlanejador();
     }
 
+    function ajustarOptativaSemestre(semIdx, deltaHa) {
+      const sem = semestresPlanejados[semIdx];
+      sem.optativas_ha = Math.max(0, Number(sem.optativas_ha || 0) + deltaHa);
+      salvarProgresso();
+      renderizarPlanejador();
+    }
+
     function renderizarPlanejador() {
       const container = document.getElementById('conteudoPlanejador');
       const disciplinas = cursoAtual.disciplinas || [];
+      const metaOptHa = Number(cursoAtual?.complementares?.optativas_ha || 0);
+      const optHaJaFeita = optativasConcluidas.reduce((acc, o) => acc + Number(o.ha || 0), 0);
+
       let acumulado = new Set(aprovadas);
+      let optHaAcumulada = optHaJaFeita;
       let semestreConclusao = null;
 
       container.innerHTML = semestresPlanejados.map((sem, idx) => {
         const chAcum = disciplinas.filter(d => acumulado.has(d.codigo)).reduce((a, b) => a + b.ha, 0);
-        const aulasTotais = disciplinas.filter(d => sem.materias.includes(d.codigo)).reduce((a, b) => a + b.aulas, 0);
+        const optHaSem = Number(sem.optativas_ha || 0);
+        const aulasObr = disciplinas.filter(d => sem.materias.includes(d.codigo)).reduce((a, b) => a + b.aulas, 0);
+        const aulasTotais = aulasObr + Math.round(optHaSem / 18);
 
         const disponiveis = disciplinas.filter(d => {
           if (sem.materias.includes(d.codigo)) return true;
@@ -1074,7 +1306,11 @@
         });
 
         sem.materias.forEach(cod => acumulado.add(cod));
-        const concluiuAqui = !semestreConclusao && acumulado.size >= disciplinas.length;
+        optHaAcumulada += optHaSem;
+
+        const concluiuObr = acumulado.size >= disciplinas.length;
+        const concluiuOpt = optHaAcumulada >= metaOptHa;
+        const concluiuAqui = !semestreConclusao && concluiuObr && concluiuOpt;
         if (concluiuAqui) {
           semestreConclusao = sem.nome;
         }
@@ -1096,6 +1332,20 @@
           `;
         }).join('');
 
+        const blocoOptativasPlanejador = metaOptHa > 0 ? `
+          <div class="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+            <div>
+              <span class="font-bold text-slate-700 block">Optativas no semestre</span>
+              <span class="text-[11px] text-slate-500">${Math.round(optHaSem / 18)} créd. (${optHaSem} H/A)</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button type="button" onclick="ajustarOptativaSemestre(${idx}, -18)" class="w-6 h-6 rounded border border-slate-300 bg-slate-50 hover:bg-slate-100 font-bold text-slate-700">-</button>
+              <button type="button" onclick="ajustarOptativaSemestre(${idx}, 36)" class="px-2 h-6 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 font-semibold text-indigo-700 text-[11px]">+2c</button>
+              <button type="button" onclick="ajustarOptativaSemestre(${idx}, 72)" class="px-2 h-6 rounded border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 font-semibold text-indigo-700 text-[11px]">+4c</button>
+            </div>
+          </div>
+        ` : '';
+
         const bordaCard = concluiuAqui ? 'border-2 border-emerald-500 ring-2 ring-emerald-100' : 'border border-slate-200';
         const tagFormatura = concluiuAqui
           ? `<span class="inline-block mb-2 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">🎓 Semestre de Formatura</span>`
@@ -1114,15 +1364,24 @@
               </button>
             </div>
             <div class="space-y-2 overflow-y-auto flex-1 pr-1 custom-scroll">
-              ${listaHtml || '<p class="text-xs text-emerald-600 font-semibold py-4 text-center">🎉 Todas as matérias concluídas!</p>'}
+              ${listaHtml || '<p class="text-xs text-emerald-600 font-semibold py-4 text-center">🎉 Obrigatórias concluídas!</p>'}
             </div>
+            ${blocoOptativasPlanejador}
           </div>
         `;
       }).join('');
 
-      document.getElementById('previsaoFormatura').textContent = semestreConclusao
-        ? `🎓 Formatura em: ${semestreConclusao}`
-        : `Faltam ${disciplinas.length - acumulado.size} matérias`;
+      const faltamObr = Math.max(0, disciplinas.length - acumulado.size);
+      const faltamOptCred = Math.max(0, Math.round((metaOptHa - optHaAcumulada) / 18));
+
+      if (semestreConclusao) {
+        document.getElementById('previsaoFormatura').textContent = `🎓 Formatura em: ${semestreConclusao}`;
+      } else {
+        const partes = [];
+        if (faltamObr > 0) partes.push(`${faltamObr} obrigatória(s)`);
+        if (faltamOptCred > 0) partes.push(`${faltamOptCred} créd. optativos`);
+        document.getElementById('previsaoFormatura').textContent = `Faltam ${partes.join(' + ')}`;
+      }
     }
 
     // =========================================================================
@@ -1164,7 +1423,6 @@
       document.getElementById('precoAnual').textContent = formatarBRL(7 * fator);
       document.getElementById('precoFormatura').textContent = formatarBRL(10 * fator);
 
-      // Bloqueia botões do plano já ativo ou inferiores para não gerar QR Code Pix à toa
       const nivelAtual = HIERARQUIA_PLANOS[planoUsuario] || 0;
       const configsBotoes = [
         { id: 'btnAssinarSemestral', plano: 'pro_semestral', textoLivre: 'Escolher Semestral', primario: false },
@@ -1350,7 +1608,7 @@
         const salvoNuvemId = await buscarUltimoCurriculoUsuario();
         if (salvoNuvemId && catalogoCurriculos.some(c => c.id === salvoNuvemId)) {
           popularFaculdades(salvoNuvemId);
-        } else {
+        } else if (cursoAtual) {
           await selecionarCurso(cursoAtual.id);
         }
       } else {
@@ -1378,8 +1636,8 @@
       descontoPioneiroDisponivel = false;
       descontoCupomPct = 0;
 
-      // Limpa progresso local da sessão anterior para não misturar contas no mesmo dispositivo
       aprovadas = new Set();
+      optativasConcluidas = [];
       semestresPlanejados = [];
       Object.keys(localStorage)
         .filter(k => k.startsWith('fx_'))
@@ -1465,7 +1723,6 @@
 
       const { error } = await supabaseClient.rpc('excluir_propria_conta');
       if (error) {
-        // Fallback caso a RPC ainda não tenha sido criada no banco
         await supabaseClient.from('progresso_alunos').delete().eq('user_id', usuarioAtual.id);
         await supabaseClient.from('perfis').delete().eq('id', usuarioAtual.id);
       }
@@ -1619,7 +1876,6 @@
         return;
       }
 
-      // Se aplicou cupom 100% OFF (ex: BETA100), libera direto sem Pix
       if (descontoCupomPct === 100) {
         await ativarPlanoGratuitoCupom(plano);
         return;
@@ -1633,6 +1889,7 @@
 
       fecharModal('modalPlanos');
       document.getElementById('pixTituloPlano').textContent = nomesPlanos[plano] || 'Fluxograma Pro';
+      document.getElementById('pixValorTexto').textContent = formatarBRL(Number(data.valor));
       document.getElementById('pixLoading').classList.remove('hidden');
       document.getElementById('pixConteudo').classList.add('hidden');
       document.getElementById('modalPix').classList.remove('hidden');
@@ -1660,7 +1917,6 @@
       document.getElementById('pixLoading').classList.add('hidden');
       document.getElementById('pixConteudo').classList.remove('hidden');
 
-      // Verifica a cada 4 segundos se o webhook do Mercado Pago já ativou o plano
       intervaloChecagemPix = setInterval(async () => {
         const { data: perfilAtualizado } = await supabaseClient
           .from('perfis')
@@ -1737,7 +1993,6 @@
           const midX = viewport.width / 2;
           const content = await page.getTextContent();
 
-          // Separa coluna esquerda e coluna direita do layout de 2 colunas do Histórico CAGR
           const colEsq = [];
           const colDir = [];
           content.items.forEach(it => {
@@ -1760,7 +2015,6 @@
           textoCompleto += textoPagina + '\n';
         }
 
-        // Detecta curso e currículo do cabeçalho do Histórico UFSC (ex: "Curso: 602 ... Currículo: 2016/1")
         const matchCurso = textoCompleto.match(/Curso:\s*(\d{3})/i);
         const matchCurr = textoCompleto.match(/Curr[íi]culo:\s*(\d{4})\/?(\d)/i);
 
@@ -1774,7 +2028,6 @@
           }
         }
 
-        // Extrai cada ocorrência de disciplina no histórico (janela de até 240 chars para nomes longos em 2 linhas)
         const regexDisc = /([A-Z]{3}\d{4})\b([\s\S]{1,240}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
         let match;
 
@@ -1782,13 +2035,11 @@
           const codigo = match[1];
           const trecho = match[2];
 
-          // Ignora explicitamente Frequência Insuficiente (FI)
           if (/\bFI\b/.test(trecho)) continue;
 
           const temFS = /\bFS\b/.test(trecho);
           const temValidacao = /\b(V|R|Rv)\b/.test(trecho);
 
-          // Busca notas decimais (ex: 6.5, 10.0, 9.5, 7.0)
           const notasMatch = trecho.match(/\b(10(?:[.,]0)?|[0-9][.,]\d)\b/g);
           let notaAprovada = false;
           if (notasMatch) {
@@ -1800,7 +2051,6 @@
           }
         }
 
-        // Fallback de segurança para códigos no limite central (midX) que tenham ficado na coluna oposta
         const fallbackGlobal = [];
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
@@ -1851,10 +2101,42 @@
           }
         }
 
+        // Cruza também as disciplinas optativas aprovadas no PDF com o catálogo
+        const mapaOptativasConhecidas = new Map();
+        catalogoCurriculos.forEach(c => {
+          (c.optativas || []).forEach(o => {
+            if (!mapaOptativasConhecidas.has(o.codigo)) mapaOptativasConhecidas.set(o.codigo, o);
+          });
+          (c.disciplinas || []).forEach(d => {
+            if (!mapaOptativasConhecidas.has(d.codigo)) {
+              mapaOptativasConhecidas.set(d.codigo, { codigo: d.codigo, nome: d.nome, ha: d.ha, aulas: d.aulas });
+            }
+          });
+        });
+
+        let novasOptativasMarcadas = 0;
+        codigosAprovadosPdf.forEach(cod => {
+          if (obrigatoriasCurso.has(cod)) return;
+          if (optativasConcluidas.some(o => o.codigo === cod)) return;
+          const infoOpt = mapaOptativasConhecidas.get(cod);
+          if (infoOpt) {
+            const aulas = infoOpt.aulas || Math.round((infoOpt.ha || 0) / 18);
+            optativasConcluidas.push({
+              codigo: infoOpt.codigo,
+              nome: infoOpt.nome,
+              ha: infoOpt.ha,
+              aulas,
+              manual: false
+            });
+            novasOptativasMarcadas++;
+          }
+        });
+
         await salvarProgresso();
         renderizarGrade();
+        renderizarOptativas();
 
-        alert(`✅ Histórico lido com sucesso!\n\n• ${codigosAprovadosPdf.size} disciplinas aprovadas identificadas no PDF.\n• ${novasMarcadas} novas obrigatórias marcadas na sua grade.`);
+        alert(`✅ Histórico lido com sucesso!\n\n• ${codigosAprovadosPdf.size} disciplinas aprovadas identificadas no PDF.\n• ${novasMarcadas} novas obrigatórias marcadas na grade.\n• ${novasOptativasMarcadas} nova(s) optativa(s) contabilizada(s).`);
       } catch (err) {
         console.error(err);
         alert('Não foi possível ler este PDF. Verifique se é o PDF original do Histórico Escolar emitido pelo CAGR/UFSC.');
