@@ -170,11 +170,14 @@
           <h2 class="text-lg font-bold text-slate-900">Simulador Multi-Semestres até a Formatura</h2>
           <p class="text-xs text-slate-500">Monte os próximos semestres em cascata, escolha turmas/professores e verifique choques de horário.</p>
         </div>
-        <div class="flex items-center gap-3">
-          <div class="text-right">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <div class="text-right mr-1">
             <span class="text-[11px] uppercase font-bold text-slate-400 block">Previsão de Formatura</span>
             <span id="previsaoFormatura" class="text-sm font-extrabold text-indigo-600">Adicione semestres</span>
           </div>
+          <button id="btnAbrirBuscadorHorario" type="button" onclick="abrirBuscadorHorarioLivre(0)" class="hidden px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition">
+            🔍 Buscar Aula por Horário
+          </button>
           <button onclick="adicionarSemestre()" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700">+ Novo Semestre</button>
           <button onclick="fecharModal('modalPlanejador')" class="p-2 text-slate-400 hover:text-slate-700 text-lg font-bold" aria-label="Fechar">✕</button>
         </div>
@@ -197,13 +200,91 @@
       <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
         <div>
           <h3 id="tituloGradeHoraria" class="text-base sm:text-lg font-extrabold text-slate-900">Grade Horária Semanal</h3>
-          <p id="subtituloGradeHoraria" class="text-xs text-slate-500">Distribuição semanal das turmas selecionadas</p>
+          <p id="subtituloGradeHoraria" class="text-xs text-slate-500">Distribuição semanal das turmas selecionadas · Clique em um horário vazio para buscar aulas disponíveis</p>
         </div>
-        <button onclick="fecharModal('modalGradeHoraria')" class="p-2 text-slate-400 hover:text-slate-700 text-lg font-bold" aria-label="Fechar">✕</button>
+        <div class="flex items-center gap-2">
+          <button id="btnGradeBuscarHorario" type="button" class="px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition">
+            🔍 Buscar Aula Livre
+          </button>
+          <button onclick="fecharModal('modalGradeHoraria')" class="p-2 text-slate-400 hover:text-slate-700 text-lg font-bold" aria-label="Fechar">✕</button>
+        </div>
       </div>
       <div id="corpoGradeHoraria" class="p-5 overflow-auto flex-1 custom-scroll">
         <!-- Tabela semanal renderizada via JS -->
       </div>
+    </div>
+  </div>
+
+  <!-- Modal: Buscador de Aulas por Dia e Horário Livre (PRO) -->
+  <div id="modalBuscadorHorario" class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
+        <div>
+          <h3 class="text-base sm:text-lg font-extrabold text-slate-900">🔍 Buscar Aulas Disponíveis por Horário</h3>
+          <p class="text-xs text-slate-500">Encontre disciplinas que tenham aula na sua janela livre para otimizar sua grade.</p>
+        </div>
+        <button onclick="fecharModal('modalBuscadorHorario')" class="p-2 text-slate-400 hover:text-slate-700 text-lg font-bold" aria-label="Fechar">✕</button>
+      </div>
+
+      <!-- Barra de Filtros -->
+      <div class="px-6 py-4 bg-white border-b border-slate-200 space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+          <div class="sm:col-span-3">
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Semestre alvo</label>
+            <select id="buscaSemestreAlvo" onchange="executarBuscaHorarioLivre()" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800"></select>
+          </div>
+          <div class="sm:col-span-3">
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Dia da semana</label>
+            <select id="buscaDiaSemana" onchange="executarBuscaHorarioLivre()" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800">
+              <option value="2">Segunda-feira</option>
+              <option value="3" selected>Terça-feira</option>
+              <option value="4">Quarta-feira</option>
+              <option value="5">Quinta-feira</option>
+              <option value="6">Sexta-feira</option>
+              <option value="7">Sábado</option>
+            </select>
+          </div>
+          <div class="sm:col-span-3">
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Horário livre</label>
+            <select id="buscaSlotHorario" onchange="executarBuscaHorarioLivre()" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800">
+              <option value="07:30">07:30 – 08:20</option>
+              <option value="08:20" selected>08:20 – 09:10</option>
+              <option value="09:10">09:10 – 10:00</option>
+              <option value="10:10">10:10 – 11:00</option>
+              <option value="11:00">11:00 – 11:50</option>
+              <option value="13:30">13:30 – 14:20</option>
+              <option value="14:20">14:20 – 15:10</option>
+              <option value="15:10">15:10 – 16:00</option>
+              <option value="16:20">16:20 – 17:10</option>
+              <option value="17:10">17:10 – 18:00</option>
+              <option value="18:30">18:30 – 19:20</option>
+              <option value="19:20">19:20 – 20:10</option>
+              <option value="20:20">20:20 – 21:10</option>
+              <option value="21:10">21:10 – 22:00</option>
+            </select>
+          </div>
+          <div class="sm:col-span-3">
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Filtro de currículo</label>
+            <select id="buscaTipoMateria" onchange="executarBuscaHorarioLivre()" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800">
+              <option value="elegiveis">Desbloqueadas (Obrig. + Opt.)</option>
+              <option value="obrigatorias_aptas">Apenas Obrigatórias Aptas</option>
+              <option value="optativas_curso">Optativas do meu Currículo</option>
+              <option value="todas_campus">Todas do Campus (Opt. Livre)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer select-none">
+            <input id="buscaSemChoque" type="checkbox" checked onchange="executarBuscaHorarioLivre()" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+            <span>Ocultar turmas que dão choque em outros dias da semana com o semestre selecionado</span>
+          </label>
+          <span id="contadorResultadosHorario" class="text-xs font-bold text-indigo-600">0 turmas encontradas</span>
+        </div>
+      </div>
+
+      <!-- Lista de Resultados -->
+      <div id="listaResultadosHorario" class="p-6 overflow-y-auto flex-1 space-y-2.5 bg-slate-100/70 custom-scroll"></div>
     </div>
   </div>
 
@@ -1447,6 +1528,232 @@
     }
 
     // =========================================================================
+    // BUSCADOR DE AULAS DISPONÍVEIS POR DIA E HORÁRIO LIVRE (PRO)
+    // =========================================================================
+    function abrirBuscadorHorarioLivre(semIdx = 0, diaPadrao = '3', horaPadrao = '08:20') {
+      if (planoUsuario === 'gratis') {
+        abrirModalPlanos();
+        return;
+      }
+      if (ofertasTurmasCache.length === 0) {
+        alert('Ainda não há horários de turmas cadastrados para este campus.');
+        return;
+      }
+
+      const selSem = document.getElementById('buscaSemestreAlvo');
+      if (selSem) {
+        selSem.innerHTML = semestresPlanejados.map((s, i) =>
+          `<option value="${i}" ${i === Number(semIdx) ? 'selected' : ''}>${escaparHtml(s.nome)}</option>`
+        ).join('');
+      }
+
+      const selDia = document.getElementById('buscaDiaSemana');
+      if (selDia && diaPadrao) selDia.value = String(diaPadrao);
+
+      const selHora = document.getElementById('buscaSlotHorario');
+      if (selHora && horaPadrao) selHora.value = String(horaPadrao);
+
+      executarBuscaHorarioLivre();
+      document.getElementById('modalBuscadorHorario').classList.remove('hidden');
+    }
+
+    function executarBuscaHorarioLivre() {
+      const semIdx = Number(document.getElementById('buscaSemestreAlvo')?.value || 0);
+      const dia = String(document.getElementById('buscaDiaSemana')?.value || '3');
+      const horaStr = String(document.getElementById('buscaSlotHorario')?.value || '08:20');
+      const filtroTipo = String(document.getElementById('buscaTipoMateria')?.value || 'elegiveis');
+      const ocultarChoques = Boolean(document.getElementById('buscaSemChoque')?.checked);
+
+      const minAlvo = horaParaMinutos(horaStr);
+      const centroSlot = minAlvo + 25;
+      const semAtual = semestresPlanejados[semIdx] || { materias: [], turmas: {} };
+
+      // Calcula estado acumulado até o semestre imediatamente anterior ao alvo
+      const disciplinas = cursoAtual?.disciplinas || [];
+      const optativasCurso = Array.isArray(cursoAtual?.optativas) ? cursoAtual.optativas : [];
+      const acumuladoAntes = new Set(aprovadas);
+      for (let i = 0; i < semIdx; i++) {
+        (semestresPlanejados[i]?.materias || []).forEach(cod => acumuladoAntes.add(cod));
+      }
+      const chAcumAntes = disciplinas
+        .filter(d => acumuladoAntes.has(d.codigo))
+        .reduce((acc, d) => acc + d.ha, 0);
+
+      // Coleta todos os blocos ocupados pelas turmas já escolhidas neste semestre
+      const blocosOcupadosSemestre = [];
+      (semAtual.materias || []).forEach(cod => {
+        const tCod = semAtual.turmas?.[cod];
+        if (!tCod) return;
+        const tObj = buscarTurmasDaDisciplina(cod).find(t => t.turma === tCod);
+        if (!tObj) return;
+        tObj.blocos.forEach(b => blocosOcupadosSemestre.push({ codigo: cod, bloco: b }));
+      });
+
+      // Mapa de nomes conhecidos em todo o catálogo
+      const mapaDiscInfo = new Map();
+      catalogoCurriculos.forEach(c => {
+        (c.disciplinas || []).forEach(d => {
+          if (!mapaDiscInfo.has(d.codigo)) mapaDiscInfo.set(d.codigo, d);
+        });
+        (c.optativas || []).forEach(o => {
+          if (!mapaDiscInfo.has(o.codigo)) mapaDiscInfo.set(o.codigo, o);
+        });
+      });
+
+      const resultados = [];
+
+      ofertasTurmasCache.forEach(t => {
+        if (!t.blocos || t.blocos.length === 0) return;
+
+        // Verifica se a turma tem ao menos 1 aula cobrindo o dia/horário solicitado
+        const bateHorario = t.blocos.some(b => {
+          if (b.dia !== dia) return false;
+          const fimReal = b.minFim + (b.aulas >= 3 ? 10 : 0);
+          return centroSlot >= b.minInicio && centroSlot < fimReal;
+        });
+        if (!bateHorario) return;
+
+        const cod = t.disciplina_codigo;
+        if (acumuladoAntes.has(cod)) return;
+
+        const discObr = disciplinas.find(d => d.codigo === cod);
+        const discOpt = optativasCurso.find(o => o.codigo === cod);
+        const infoGeral = discObr || discOpt || mapaDiscInfo.get(cod) || { codigo: cod, nome: cod, ha: 72, aulas: 4 };
+
+        let categoria = 'optativa_livre';
+        let apta = true;
+
+        if (discObr) {
+          categoria = 'obrigatoria';
+          apta = verificarElegibilidade(discObr, acumuladoAntes, chAcumAntes).status === 'apta';
+        } else if (discOpt) {
+          categoria = 'optativa_curso';
+          apta = true;
+        }
+
+        if (filtroTipo === 'elegiveis' && !apta) return;
+        if (filtroTipo === 'obrigatorias_aptas' && (categoria !== 'obrigatoria' || !apta)) return;
+        if (filtroTipo === 'optativas_curso' && categoria !== 'optativa_curso') return;
+
+        // Verifica choques em outros dias da semana com o semestre atual
+        const choquesOutrosDias = [];
+        t.blocos.forEach(b1 => {
+          blocosOcupadosSemestre.forEach(oc => {
+            if (oc.codigo === cod) return;
+            const b2 = oc.bloco;
+            if (b1.dia === b2.dia && b1.minInicio < b2.minFim && b2.minInicio < b1.minFim) {
+              choquesOutrosDias.push(`${oc.codigo} (${DIAS_SEMANA_UFSC[b1.dia] || b1.dia} ${b1.inicio})`);
+            }
+          });
+        });
+
+        if (ocultarChoques && choquesOutrosDias.length > 0) return;
+
+        resultados.push({
+          turmaObj: t,
+          infoGeral,
+          categoria,
+          apta,
+          choquesOutrosDias: [...new Set(choquesOutrosDias)]
+        });
+      });
+
+      // Ordena: Obrigatórias aptas -> Optativas do currículo -> Optativas livres
+      const pesoCat = { obrigatoria: 0, optativa_curso: 1, optativa_livre: 2 };
+      resultados.sort((a, b) => {
+        if (pesoCat[a.categoria] !== pesoCat[b.categoria]) return pesoCat[a.categoria] - pesoCat[b.categoria];
+        return a.turmaObj.disciplina_codigo.localeCompare(b.turmaObj.disciplina_codigo);
+      });
+
+      const contEl = document.getElementById('contadorResultadosHorario');
+      if (contEl) contEl.textContent = `${resultados.length} turma(s) encontrada(s)`;
+
+      const listaEl = document.getElementById('listaResultadosHorario');
+      if (!listaEl) return;
+
+      if (resultados.length === 0) {
+        listaEl.innerHTML = `
+          <div class="text-center py-12 bg-white rounded-xl border border-slate-200 text-xs text-slate-500 space-y-1.5">
+            <p class="font-bold text-slate-700 text-sm">Nenhuma turma encontrada para ${DIAS_SEMANA_UFSC[dia]} às ${horaStr}</p>
+            <p>Tente mudar o filtro de currículo para <strong>"Todas do Campus (Opt. Livre)"</strong> ou desmarcar a trava de choque em outros dias.</p>
+          </div>
+        `;
+        return;
+      }
+
+      listaEl.innerHTML = resultados.map(r => {
+        const t = r.turmaObj;
+        const badgeCat = r.categoria === 'obrigatoria'
+          ? (r.apta
+              ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Obrigatória · ${r.infoGeral.fase}ªF</span>`
+              : `<span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-600">Obrigatória (Pré-req. pendente)</span>`)
+          : (r.categoria === 'optativa_curso'
+              ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">Optativa do Currículo</span>`
+              : `<span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">Optativa Livre / Outro Curso</span>`);
+
+        const resumoHor = formatarResumoHorarioTurma(t);
+        const profTxt = t.professores.join(', ') || 'Professor a definir';
+        const alertaChoque = r.choquesOutrosDias.length > 0
+          ? `<span class="text-[11px] font-bold text-rose-600 block mt-1">⚠️ Choque em outro horário: ${escaparHtml(r.choquesOutrosDias.join(', '))}</span>`
+          : '';
+
+        return `
+          <div class="bg-white rounded-xl border border-slate-200 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-indigo-300 transition">
+            <div class="space-y-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs font-extrabold text-slate-900">${escaparHtml(t.disciplina_codigo)} · T.${escaparHtml(t.turma)}</span>
+                ${badgeCat}
+              </div>
+              <h4 class="text-sm font-bold text-slate-800 truncate">${escaparHtml(r.infoGeral.nome)}</h4>
+              <div class="text-xs text-slate-600 flex flex-wrap gap-x-4 gap-y-0.5">
+                <span>🕒 <strong>${escaparHtml(resumoHor)}</strong></span>
+                <span>👨‍🏫 ${escaparHtml(profTxt)}</span>
+              </div>
+              ${alertaChoque}
+            </div>
+
+            <button type="button" onclick="encaixarTurmaBuscada(${semIdx}, '${escaparHtml(t.disciplina_codigo)}', '${escaparHtml(t.turma)}')" class="shrink-0 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition">
+              + Encaixar no Semestre
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function encaixarTurmaBuscada(semIdx, codigoDisciplina, codigoTurma) {
+      const sem = semestresPlanejados[semIdx];
+      if (!sem) return;
+      if (!sem.turmas) sem.turmas = {};
+
+      const disciplinas = cursoAtual?.disciplinas || [];
+      const ehObrigatoria = disciplinas.some(d => d.codigo === codigoDisciplina);
+
+      if (ehObrigatoria) {
+        if (!sem.materias.includes(codigoDisciplina)) {
+          sem.materias.push(codigoDisciplina);
+        }
+        sem.turmas[codigoDisciplina] = codigoTurma;
+      } else {
+        // Se for optativa do currículo ou livre, adiciona a carga horária nas optativas planejadas do semestre
+        const turmaObj = buscarTurmasDaDisciplina(codigoDisciplina).find(t => t.turma === codigoTurma);
+        const aulasTurma = turmaObj ? turmaObj.blocos.reduce((acc, b) => acc + (b.aulas || 0), 0) : 4;
+        const haAdicionar = (aulasTurma || 4) * 18;
+        sem.optativas_ha = Number(sem.optativas_ha || 0) + haAdicionar;
+        if (!sem.materias.includes(codigoDisciplina)) {
+          sem.materias.push(codigoDisciplina);
+        }
+        sem.turmas[codigoDisciplina] = codigoTurma;
+      }
+
+      await salvarProgresso();
+      fecharModal('modalBuscadorHorario');
+      renderizarPlanejador();
+      if (!document.getElementById('modalGradeHoraria').classList.contains('hidden')) {
+        abrirGradeHorariaSemestre(semIdx);
+      }
+    }
+
+    // =========================================================================
     // PLANEJADOR MULTI-SEMESTRES ATÉ A FORMATURA (PRO)
     // =========================================================================
     async function abrirPlanejador() {
@@ -1526,8 +1833,13 @@
 
       document.getElementById('tituloGradeHoraria').textContent = `📅 Grade Horária — ${sem.nome}`;
       document.getElementById('subtituloGradeHoraria').textContent = semestreReferenciaTurmas
-        ? `Base de referência: ${semestreReferenciaTurmas} (sujeita a alterações pela coordenação em semestres futuros)`
-        : 'Distribuição semanal das turmas selecionadas';
+        ? `Base de referência: ${semestreReferenciaTurmas} · Clique em um horário vazio para buscar aulas disponíveis`
+        : 'Distribuição semanal das turmas selecionadas · Clique em um horário vazio para buscar aulas';
+
+      const btnBuscarGrade = document.getElementById('btnGradeBuscarHorario');
+      if (btnBuscarGrade) {
+        btnBuscarGrade.onclick = () => abrirBuscadorHorarioLivre(semIdx, '3', '08:20');
+      }
 
       const itensGrade = [];
       sem.materias.forEach(cod => {
@@ -1547,17 +1859,6 @@
         });
       });
 
-      if (itensGrade.length === 0) {
-        document.getElementById('corpoGradeHoraria').innerHTML = `
-          <div class="text-center py-12 text-xs text-slate-500 space-y-2">
-            <p class="font-bold text-slate-700 text-sm">Nenhuma turma com horário selecionado neste semestre</p>
-            <p>Marque as disciplinas desejadas no semestre e escolha a turma no seletor abaixo de cada matéria para montar sua grade semanal.</p>
-          </div>
-        `;
-        document.getElementById('modalGradeHoraria').classList.remove('hidden');
-        return;
-      }
-
       // Horários oficiais UFSC aula a aula (1 crédito = 1 bloco de 50 min)
       const horariosAulaUfsc = [
         { inicio: '07:30', fim: '08:20', minIni: 450, minFim: 500 },
@@ -1576,7 +1877,6 @@
         { inicio: '21:10', fim: '22:00', minIni: 1270, minFim: 1320 }
       ];
 
-      // Adiciona dinamicamente qualquer horário fora dos slots padrão (ex: 18:00)
       const todosSlots = [...horariosAulaUfsc];
       itensGrade.forEach(it => {
         for (let k = 0; k < (it.bloco.aulas || 1); k++) {
@@ -1606,7 +1906,9 @@
           });
 
           if (encontrados.length === 0) {
-            return `<td class="border border-slate-200 px-2 py-1.5 bg-slate-50/40"></td>`;
+            return `<td onclick="abrirBuscadorHorarioLivre(${semIdx}, '${dia}', '${slot.inicio}')" title="Buscar aulas livres neste horário" class="border border-slate-200 px-2 py-1.5 bg-slate-50/40 hover:bg-indigo-50/60 cursor-pointer transition group text-center">
+              <span class="opacity-0 group-hover:opacity-100 text-[10px] font-semibold text-indigo-600">+ Buscar</span>
+            </td>`;
           }
 
           const temConflito = encontrados.length > 1;
@@ -1654,13 +1956,18 @@
       const container = document.getElementById('conteudoPlanejador');
       const bannerRef = document.getElementById('bannerReferenciaHorarios');
       const textoRef = document.getElementById('textoReferenciaHorarios');
+      const btnBuscadorHeader = document.getElementById('btnAbrirBuscadorHorario');
 
-      if (ofertasTurmasCache.length > 0 && bannerRef && textoRef) {
-        bannerRef.classList.remove('hidden');
-        const labelSem = semestreReferenciaTurmas || '2027.1';
-        textoRef.innerHTML = `📅 Usando os horários e professores de <strong>${escaparHtml(labelSem)}</strong> como base (todas as turmas da disciplina disponíveis). <strong>Aviso:</strong> para semestres futuros, os horários podem mudar antes da matrícula.`;
-      } else if (bannerRef) {
-        bannerRef.classList.add('hidden');
+      if (ofertasTurmasCache.length > 0) {
+        if (btnBuscadorHeader) btnBuscadorHeader.classList.remove('hidden');
+        if (bannerRef && textoRef) {
+          bannerRef.classList.remove('hidden');
+          const labelSem = semestreReferenciaTurmas || '2027.1';
+          textoRef.innerHTML = `📅 Usando os horários e professores de <strong>${escaparHtml(labelSem)}</strong> como base (todas as turmas da disciplina disponíveis). <strong>Aviso:</strong> para semestres futuros, os horários podem mudar antes da matrícula.`;
+        }
+      } else {
+        if (btnBuscadorHeader) btnBuscadorHeader.classList.add('hidden');
+        if (bannerRef) bannerRef.classList.add('hidden');
       }
 
       const disciplinas = cursoAtual.disciplinas || [];
@@ -1758,6 +2065,24 @@
           `;
         }).join('');
 
+        // Exibe optativas/livres já encaixadas via buscador de horário neste semestre
+        const optativasEncaixadasNoSemestre = sem.materias.filter(cod => !disciplinas.some(d => d.codigo === cod));
+        const optativasEncaixadasHtml = optativasEncaixadasNoSemestre.map(cod => {
+          const turmaSelecionadaCod = sem.turmas[cod] || '';
+          const turmaObj = buscarTurmasDaDisciplina(cod).find(t => t.turma === turmaSelecionadaCod);
+          const choquesDesta = choquesMap[cod] || [];
+          return `
+            <div onclick="toggleMateriaSemestre(${idx}, '${cod}')" class="cursor-pointer p-2.5 rounded-lg border text-xs transition ${choquesDesta.length > 0 ? 'bg-rose-700 text-white border-rose-700' : 'bg-indigo-600 text-white border-indigo-600'} font-semibold">
+              <div class="flex justify-between">
+                <span>${escaparHtml(cod)} · Optativa</span>
+                <span>T.${escaparHtml(turmaSelecionadaCod)}</span>
+              </div>
+              ${turmaObj ? `<div class="text-[10px] text-indigo-100 mt-1">🕒 ${escaparHtml(formatarResumoHorarioTurma(turmaObj))}</div>` : ''}
+              ${choquesDesta.length > 0 ? `<div class="text-[10px] font-bold bg-rose-600 text-white px-2 py-0.5 rounded mt-1">⚠️ Choque com ${escaparHtml(choquesDesta.join(', '))}</div>` : ''}
+            </div>
+          `;
+        }).join('');
+
         const blocoOptativasPlanejador = metaOptHa > 0 ? `
           <div class="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
             <div>
@@ -1773,10 +2098,15 @@
         ` : '';
 
         const btnGradeSemanal = ofertasTurmasCache.length > 0 ? `
-          <button type="button" onclick="abrirGradeHorariaSemestre(${idx})" class="mt-2 w-full py-1.5 px-2.5 rounded-lg border text-[11px] font-semibold transition flex items-center justify-center gap-1.5 ${totalChoques > 0 ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100' : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}">
-            <span>📅 Ver Grade da Semana</span>
-            ${totalChoques > 0 ? `<span class="px-1.5 py-0.2 rounded bg-rose-600 text-white text-[10px]">Choque!</span>` : ''}
-          </button>
+          <div class="mt-2 flex gap-1.5">
+            <button type="button" onclick="abrirGradeHorariaSemestre(${idx})" class="flex-1 py-1.5 px-2.5 rounded-lg border text-[11px] font-semibold transition flex items-center justify-center gap-1.5 ${totalChoques > 0 ? 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100' : 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}">
+              <span>📅 Grade da Semana</span>
+              ${totalChoques > 0 ? `<span class="px-1.5 py-0.2 rounded bg-rose-600 text-white text-[10px]">Choque!</span>` : ''}
+            </button>
+            <button type="button" onclick="abrirBuscadorHorarioLivre(${idx}, '3', '08:20')" title="Buscar aulas disponíveis por horário" class="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-semibold transition">
+              🔍
+            </button>
+          </div>
         ` : '';
 
         const bordaCard = concluiuAqui ? 'border-2 border-emerald-500 ring-2 ring-emerald-100' : 'border border-slate-200';
@@ -1798,6 +2128,7 @@
             </div>
             <div class="space-y-2 overflow-y-auto flex-1 pr-1 custom-scroll">
               ${listaHtml || '<p class="text-xs text-emerald-600 font-semibold py-4 text-center">🎉 Obrigatórias concluídas!</p>'}
+              ${optativasEncaixadasHtml}
             </div>
             ${blocoOptativasPlanejador}
             ${btnGradeSemanal}
@@ -2290,10 +2621,12 @@
     async function ativarPlanoGratuitoCupom(plano) {
       planoUsuario = plano;
       atualizarBadgePlano();
-      await supabaseClient.from('perfis').update({
+      await supabaseClient.from('perfis').upsert({
+        id: usuarioAtual.id,
+        email: usuarioAtual.email,
         plano,
         plano_expira_em: null
-      }).eq('id', usuarioAtual.id);
+      }, { onConflict: 'id' });
       fecharModal('modalPlanos');
       abrirPlanejador();
     }
