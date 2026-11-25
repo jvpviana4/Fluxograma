@@ -168,7 +168,7 @@
       <div class="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50">
         <div>
           <h2 class="text-lg font-bold text-slate-900">Simulador Multi-Semestres até a Formatura</h2>
-          <p class="text-xs text-slate-500">Monte os próximos semestres em cascata, escolha turmas/professores e verifique choques de horário.</p>
+          <p class="text-xs text-slate-500">Monte os próximos semestres em cascata, escolha turmas/professores e confira sua prioridade na matrícula (Art. 42).</p>
         </div>
         <div class="flex items-center gap-2.5 flex-wrap">
           <div class="text-right mr-1">
@@ -183,9 +183,25 @@
         </div>
       </div>
 
-      <!-- Banner de Referência de Horários (ex: usando 2027.1 como base para semestres futuros) -->
-      <div id="bannerReferenciaHorarios" class="hidden px-6 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-900 text-xs flex flex-wrap items-center justify-between gap-2">
+      <!-- Barra de Contexto de Prioridade de Matrícula (Fase Regular / Ingresso) + Referência de Horários -->
+      <div id="bannerReferenciaHorarios" class="hidden px-6 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-900 text-xs flex flex-wrap items-center justify-between gap-3">
         <span id="textoReferenciaHorarios">📅 Usando os horários e professores de <strong>2027.1</strong> como base. Para semestres futuros, as ofertas podem sofrer alterações antes da matrícula.</span>
+        <div class="flex items-center gap-2 shrink-0">
+          <label for="selectFaseRegularAluno" class="font-semibold text-[11px]">Sua fase regular no próximo semestre:</label>
+          <select id="selectFaseRegularAluno" onchange="atualizarFaseRegularAluno(this.value)" class="text-[11px] bg-white border border-amber-300 rounded px-2 py-1 text-slate-800 font-semibold">
+            <option value="">Não informada (Prioridade II)</option>
+            <option value="1">1ª Fase (Calouro)</option>
+            <option value="2">2ª Fase</option>
+            <option value="3">3ª Fase</option>
+            <option value="4">4ª Fase</option>
+            <option value="5">5ª Fase</option>
+            <option value="6">6ª Fase</option>
+            <option value="7">7ª Fase</option>
+            <option value="8">8ª Fase</option>
+            <option value="9">9ª Fase</option>
+            <option value="10">10ª Fase</option>
+          </select>
+        </div>
       </div>
 
       <div id="conteudoPlanejador" class="p-6 overflow-x-auto flex-1 flex gap-4 custom-scroll bg-slate-100/70">
@@ -221,7 +237,7 @@
       <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
         <div>
           <h3 class="text-base sm:text-lg font-extrabold text-slate-900">🔍 Buscar Aulas Disponíveis por Horário</h3>
-          <p class="text-xs text-slate-500">Encontre disciplinas que tenham aula na sua janela livre para otimizar sua grade.</p>
+          <p class="text-xs text-slate-500">Encontre disciplinas que tenham aula na sua janela livre e veja sua prioridade de matrícula.</p>
         </div>
         <button onclick="fecharModal('modalBuscadorHorario')" class="p-2 text-slate-400 hover:text-slate-700 text-lg font-bold" aria-label="Fechar">✕</button>
       </div>
@@ -323,7 +339,7 @@
             <ul class="text-xs text-slate-600 space-y-2 mb-6">
               <li>✓ Leitura automática do Histórico PDF (UFSC)</li>
               <li>✓ Controle de créditos de Disciplinas Optativas</li>
-              <li>✓ Simulador Multi-Semestres com horários e professores</li>
+              <li>✓ Simulador Multi-Semestres com horários e prioridade (Art. 42)</li>
               <li>✓ Sincronização na nuvem PC + Celular</li>
             </ul>
           </div>
@@ -606,6 +622,9 @@
     let catalogoCurriculos = [];
     let cursoAtual = null;
     let aprovadas = new Set();
+    let reprovadasFS = new Set();
+    let reprovadasFI = new Set();
+    let faseRegularAluno = null;
     let optativasConcluidas = [];
     let semestresPlanejados = [];
     let ofertasTurmasCache = [];
@@ -912,8 +931,22 @@
       localStorage.setItem('fx_ultimo_curriculo', id);
 
       aprovadas = new Set();
+      reprovadasFS = new Set();
+      reprovadasFI = new Set();
+      faseRegularAluno = null;
       optativasConcluidas = [];
       semestresPlanejados = [];
+
+      // Carrega metadados locais opcionais do histórico (reprovações FS/FI e fase regular — armazenados apenas no dispositivo por privacidade LGPD)
+      const salvoLocal = localStorage.getItem('fx_' + id);
+      if (salvoLocal) {
+        try {
+          const parsedLocal = JSON.parse(salvoLocal);
+          reprovadasFS = new Set(parsedLocal.reprovadasFS || []);
+          reprovadasFI = new Set(parsedLocal.reprovadasFI || []);
+          faseRegularAluno = parsedLocal.faseRegularAluno || null;
+        } catch (_) {}
+      }
 
       if (usuarioAtual) {
         const { data } = await supabaseClient
@@ -928,14 +961,11 @@
           optativasConcluidas = Array.isArray(data.optativas_feitas) ? data.optativas_feitas : [];
           semestresPlanejados = data.semestres_planejados || [];
         }
-      } else {
-        const salvo = localStorage.getItem('fx_' + id);
-        if (salvo) {
-          const parsed = JSON.parse(salvo);
-          aprovadas = new Set(parsed.aprovadas || []);
-          optativasConcluidas = Array.isArray(parsed.optativasConcluidas) ? parsed.optativasConcluidas : [];
-          semestresPlanejados = parsed.semestresPlanejados || [];
-        }
+      } else if (salvoLocal) {
+        const parsed = JSON.parse(salvoLocal);
+        aprovadas = new Set(parsed.aprovadas || []);
+        optativasConcluidas = Array.isArray(parsed.optativasConcluidas) ? parsed.optativasConcluidas : [];
+        semestresPlanejados = parsed.semestresPlanejados || [];
       }
 
       atualizarAvisoHistorico();
@@ -967,20 +997,23 @@
 
     async function salvarProgresso() {
       if (!cursoAtual) return;
-      const payload = {
+      const payloadLocal = {
         aprovadas: Array.from(aprovadas),
+        reprovadasFS: Array.from(reprovadasFS),
+        reprovadasFI: Array.from(reprovadasFI),
+        faseRegularAluno,
         optativasConcluidas,
         semestresPlanejados
       };
-      localStorage.setItem('fx_' + cursoAtual.id, JSON.stringify(payload));
+      localStorage.setItem('fx_' + cursoAtual.id, JSON.stringify(payloadLocal));
 
       if (usuarioAtual) {
         await supabaseClient.from('progresso_alunos').upsert({
           user_id: usuarioAtual.id,
           curriculo_id: cursoAtual.id,
-          aprovadas: payload.aprovadas,
-          optativas_feitas: payload.optativasConcluidas,
-          semestres_planejados: payload.semestresPlanejados,
+          aprovadas: payloadLocal.aprovadas,
+          optativas_feitas: payloadLocal.optativasConcluidas,
+          semestres_planejados: payloadLocal.semestresPlanejados,
           updated_at: new Date().toISOString()
         }, { onConflict: 'user_id,curriculo_id' });
       }
@@ -1346,6 +1379,111 @@
     }
 
     // =========================================================================
+    // CÁLCULO DE ORDEM DE PRIORIDADE NA MATRÍCULA (ART. 42 · RES. 17/CUn/97)
+    // =========================================================================
+    function atualizarFaseRegularAluno(valor) {
+      faseRegularAluno = valor ? Number(valor) : null;
+      salvarProgresso();
+      renderizarPlanejador();
+    }
+
+    function calcularPrioridadeMatricula(turmaObj, semIdx = 0) {
+      const codDisc = turmaObj.disciplina_codigo;
+      const codCursoAluno = String(cursoAtual?.curso_codigo || '').trim();
+      const disciplinasObr = cursoAtual?.disciplinas || [];
+      const optativasCurso = Array.isArray(cursoAtual?.optativas) ? cursoAtual.optativas : [];
+
+      const discObr = disciplinasObr.find(d => d.codigo === codDisc);
+      const discOpt = optativasCurso.find(o => o.codigo === codDisc);
+      const pertenceAoCurriculo = Boolean(discObr || discOpt);
+
+      // Verifica se a turma está alocada para o curso do aluno (via curso_reserva ou sufixo do código da turma, ex: 04602 -> 602)
+      const turmaDoCurso = (turmaObj.curso_reserva && turmaObj.curso_reserva === codCursoAluno) ||
+        (codCursoAluno && turmaObj.turma.includes(codCursoAluno));
+
+      const teveFI = reprovadasFI.has(codDisc);
+      const teveFS = reprovadasFS.has(codDisc);
+      const semReprovacao = !teveFI && !teveFS;
+
+      // Caso 1: Turma alocada para o curso do aluno (Incisos I a V)
+      if (turmaDoCurso) {
+        if (semReprovacao) {
+          const faseEsperadaNesteSemestre = faseRegularAluno ? (Number(faseRegularAluno) + Number(semIdx)) : null;
+          if (discObr && faseEsperadaNesteSemestre && Number(discObr.fase) === faseEsperadaNesteSemestre) {
+            return {
+              romano: 'I',
+              nivel: 1,
+              label: 'Prioridade I',
+              detalhe: 'Regular do curso na fase ideal',
+              corBadge: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+            };
+          }
+          return {
+            romano: 'II',
+            nivel: 2,
+            label: 'Prioridade II',
+            detalhe: 'Seu curso · Sem reprovação anterior',
+            corBadge: 'bg-teal-100 text-teal-800 border-teal-200'
+          };
+        }
+        if (teveFS) {
+          return {
+            romano: 'III',
+            nivel: 3,
+            label: 'Prioridade III',
+            detalhe: 'Seu curso · Reprovado com FS / Cancelada',
+            corBadge: 'bg-amber-100 text-amber-800 border-amber-200'
+          };
+        }
+        return {
+          romano: 'V',
+          nivel: 5,
+          label: 'Prioridade V',
+          detalhe: 'Seu curso · Reprovado com FI',
+          corBadge: 'bg-orange-100 text-orange-800 border-orange-200'
+        };
+      }
+
+      // Caso 2: Turma alocada para outro curso, mas a disciplina consta no currículo do aluno (Incisos VI a VIII)
+      if (pertenceAoCurriculo) {
+        if (semReprovacao) {
+          return {
+            romano: 'VI',
+            nivel: 6,
+            label: 'Prioridade VI',
+            detalhe: 'Outro curso · No currículo · 1ª vez',
+            corBadge: 'bg-sky-100 text-sky-800 border-sky-200'
+          };
+        }
+        if (teveFS) {
+          return {
+            romano: 'VII',
+            nivel: 7,
+            label: 'Prioridade VII',
+            detalhe: 'Outro curso · No currículo · Reprov. FS',
+            corBadge: 'bg-indigo-100 text-indigo-800 border-indigo-200'
+          };
+        }
+        return {
+          romano: 'VIII',
+          nivel: 8,
+          label: 'Prioridade VIII',
+          detalhe: 'Outro curso · No currículo · Reprov. FI',
+          corBadge: 'bg-purple-100 text-purple-800 border-purple-200'
+        };
+      }
+
+      // Caso 3: Outros interessados / Optativa livre fora do currículo (Inciso IX)
+      return {
+        romano: 'IX',
+        nivel: 9,
+        label: 'Prioridade IX',
+        detalhe: 'Outros interessados (fora do currículo)',
+        corBadge: 'bg-slate-200 text-slate-700 border-slate-300'
+      };
+    }
+
+    // =========================================================================
     // OFERTAS DE TURMAS, HORÁRIOS, PROFESSORES E DETECÇÃO DE CHOQUES (PRO)
     // =========================================================================
     async function carregarOfertasTurmas() {
@@ -1478,27 +1616,26 @@
         .join(' · ');
     }
 
-    // Busca TODAS as turmas com o mesmo código de disciplina (independente do curso reservado)
-    function buscarTurmasDaDisciplina(codigoDisciplina) {
+    // Busca TODAS as turmas com o mesmo código de disciplina (ordenadas pela prioridade do aluno)
+    function buscarTurmasDaDisciplina(codigoDisciplina, semIdx = 0) {
       const cod = String(codigoDisciplina || '').trim().toUpperCase();
       const todas = ofertasTurmasCache.filter(t => t.disciplina_codigo === cod);
-      const codCursoAluno = String(cursoAtual?.curso_codigo || '').trim();
 
       return [...todas].sort((a, b) => {
-        const aReserva = a.curso_reserva === codCursoAluno || a.turma.includes(codCursoAluno) ? 0 : 1;
-        const bReserva = b.curso_reserva === codCursoAluno || b.turma.includes(codCursoAluno) ? 0 : 1;
-        if (aReserva !== bReserva) return aReserva - bReserva;
+        const pA = calcularPrioridadeMatricula(a, semIdx).nivel;
+        const pB = calcularPrioridadeMatricula(b, semIdx).nivel;
+        if (pA !== pB) return pA - pB;
         return a.turma.localeCompare(b.turma);
       });
     }
 
-    function detectarChoquesNoSemestre(sem) {
+    function detectarChoquesNoSemestre(sem, semIdx = 0) {
       const turmasEscolhidas = sem.turmas || {};
       const materiasComTurma = sem.materias
         .map(cod => {
           const turmaCodigo = turmasEscolhidas[cod];
           if (!turmaCodigo) return null;
-          const obj = buscarTurmasDaDisciplina(cod).find(t => t.turma === turmaCodigo);
+          const obj = buscarTurmasDaDisciplina(cod, semIdx).find(t => t.turma === turmaCodigo);
           return obj ? { codigo: cod, turmaObj: obj } : null;
         })
         .filter(Boolean);
@@ -1568,7 +1705,6 @@
       const centroSlot = minAlvo + 25;
       const semAtual = semestresPlanejados[semIdx] || { materias: [], turmas: {} };
 
-      // Calcula estado acumulado até o semestre imediatamente anterior ao alvo
       const disciplinas = cursoAtual?.disciplinas || [];
       const optativasCurso = Array.isArray(cursoAtual?.optativas) ? cursoAtual.optativas : [];
       const acumuladoAntes = new Set(aprovadas);
@@ -1579,17 +1715,15 @@
         .filter(d => acumuladoAntes.has(d.codigo))
         .reduce((acc, d) => acc + d.ha, 0);
 
-      // Coleta todos os blocos ocupados pelas turmas já escolhidas neste semestre
       const blocosOcupadosSemestre = [];
       (semAtual.materias || []).forEach(cod => {
         const tCod = semAtual.turmas?.[cod];
         if (!tCod) return;
-        const tObj = buscarTurmasDaDisciplina(cod).find(t => t.turma === tCod);
+        const tObj = buscarTurmasDaDisciplina(cod, semIdx).find(t => t.turma === tCod);
         if (!tObj) return;
         tObj.blocos.forEach(b => blocosOcupadosSemestre.push({ codigo: cod, bloco: b }));
       });
 
-      // Mapa de nomes conhecidos em todo o catálogo
       const mapaDiscInfo = new Map();
       catalogoCurriculos.forEach(c => {
         (c.disciplinas || []).forEach(d => {
@@ -1605,7 +1739,6 @@
       ofertasTurmasCache.forEach(t => {
         if (!t.blocos || t.blocos.length === 0) return;
 
-        // Verifica se a turma tem ao menos 1 aula cobrindo o dia/horário solicitado
         const bateHorario = t.blocos.some(b => {
           if (b.dia !== dia) return false;
           const fimReal = b.minFim + (b.aulas >= 3 ? 10 : 0);
@@ -1635,7 +1768,6 @@
         if (filtroTipo === 'obrigatorias_aptas' && (categoria !== 'obrigatoria' || !apta)) return;
         if (filtroTipo === 'optativas_curso' && categoria !== 'optativa_curso') return;
 
-        // Verifica choques em outros dias da semana com o semestre atual
         const choquesOutrosDias = [];
         t.blocos.forEach(b1 => {
           blocosOcupadosSemestre.forEach(oc => {
@@ -1649,19 +1781,21 @@
 
         if (ocultarChoques && choquesOutrosDias.length > 0) return;
 
+        const prioridade = calcularPrioridadeMatricula(t, semIdx);
+
         resultados.push({
           turmaObj: t,
           infoGeral,
           categoria,
           apta,
+          prioridade,
           choquesOutrosDias: [...new Set(choquesOutrosDias)]
         });
       });
 
-      // Ordena: Obrigatórias aptas -> Optativas do currículo -> Optativas livres
-      const pesoCat = { obrigatoria: 0, optativa_curso: 1, optativa_livre: 2 };
+      // Ordena pela Ordem de Prioridade (Art. 42) e depois pelo código da disciplina
       resultados.sort((a, b) => {
-        if (pesoCat[a.categoria] !== pesoCat[b.categoria]) return pesoCat[a.categoria] - pesoCat[b.categoria];
+        if (a.prioridade.nivel !== b.prioridade.nivel) return a.prioridade.nivel - b.prioridade.nivel;
         return a.turmaObj.disciplina_codigo.localeCompare(b.turmaObj.disciplina_codigo);
       });
 
@@ -1683,6 +1817,7 @@
 
       listaEl.innerHTML = resultados.map(r => {
         const t = r.turmaObj;
+        const p = r.prioridade;
         const badgeCat = r.categoria === 'obrigatoria'
           ? (r.apta
               ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Obrigatória · ${r.infoGeral.fase}ªF</span>`
@@ -1690,6 +1825,9 @@
           : (r.categoria === 'optativa_curso'
               ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">Optativa do Currículo</span>`
               : `<span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">Optativa Livre / Outro Curso</span>`);
+
+        const badgePrioridade = `<span title="${escaparHtml(p.detalhe)}" class="text-[10px] font-extrabold px-2 py-0.5 rounded border ${p.corBadge}">${escaparHtml(p.label)} (${escaparHtml(p.detalhe)})</span>`;
+        const vagasTxt = t.vagas !== null && t.vagas !== undefined ? ` · ${t.vagas} vagas` : '';
 
         const resumoHor = formatarResumoHorarioTurma(t);
         const profTxt = t.professores.join(', ') || 'Professor a definir';
@@ -1700,9 +1838,10 @@
         return `
           <div class="bg-white rounded-xl border border-slate-200 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-indigo-300 transition">
             <div class="space-y-1 min-w-0">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="text-xs font-extrabold text-slate-900">${escaparHtml(t.disciplina_codigo)} · T.${escaparHtml(t.turma)}</span>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="text-xs font-extrabold text-slate-900">${escaparHtml(t.disciplina_codigo)} · T.${escaparHtml(t.turma)}${vagasTxt}</span>
                 ${badgeCat}
+                ${badgePrioridade}
               </div>
               <h4 class="text-sm font-bold text-slate-800 truncate">${escaparHtml(r.infoGeral.nome)}</h4>
               <div class="text-xs text-slate-600 flex flex-wrap gap-x-4 gap-y-0.5">
@@ -1734,8 +1873,7 @@
         }
         sem.turmas[codigoDisciplina] = codigoTurma;
       } else {
-        // Se for optativa do currículo ou livre, adiciona a carga horária nas optativas planejadas do semestre
-        const turmaObj = buscarTurmasDaDisciplina(codigoDisciplina).find(t => t.turma === codigoTurma);
+        const turmaObj = buscarTurmasDaDisciplina(codigoDisciplina, semIdx).find(t => t.turma === codigoTurma);
         const aulasTurma = turmaObj ? turmaObj.blocos.reduce((acc, b) => acc + (b.aulas || 0), 0) : 4;
         const haAdicionar = (aulasTurma || 4) * 18;
         sem.optativas_ha = Number(sem.optativas_ha || 0) + haAdicionar;
@@ -1846,20 +1984,21 @@
         const disc = disciplinas.find(d => d.codigo === cod);
         const turmaCod = turmasEscolhidas[cod];
         if (!turmaCod) return;
-        const turmaObj = buscarTurmasDaDisciplina(cod).find(t => t.turma === turmaCod);
+        const turmaObj = buscarTurmasDaDisciplina(cod, semIdx).find(t => t.turma === turmaCod);
         if (!turmaObj) return;
+        const prio = calcularPrioridadeMatricula(turmaObj, semIdx);
         turmaObj.blocos.forEach(b => {
           itensGrade.push({
             codigo: cod,
             nome: disc?.nome || cod,
             turma: turmaCod,
+            prioridade: prio,
             professores: turmaObj.professores.join(', ') || 'A definir',
             bloco: b
           });
         });
       });
 
-      // Horários oficiais UFSC aula a aula (1 crédito = 1 bloco de 50 min)
       const horariosAulaUfsc = [
         { inicio: '07:30', fim: '08:20', minIni: 450, minFim: 500 },
         { inicio: '08:20', fim: '09:10', minIni: 500, minFim: 550 },
@@ -1914,7 +2053,10 @@
           const temConflito = encontrados.length > 1;
           const cards = encontrados.map(it => `
             <div class="rounded-lg px-2 py-1.5 text-[11px] leading-snug ${temConflito ? 'bg-rose-100 border border-rose-300 text-rose-900' : 'bg-indigo-50 border border-indigo-200 text-indigo-950'}">
-              <div class="font-extrabold">${escaparHtml(it.codigo)} · T.${escaparHtml(it.turma)}</div>
+              <div class="flex items-center justify-between gap-1">
+                <span class="font-extrabold">${escaparHtml(it.codigo)} · T.${escaparHtml(it.turma)}</span>
+                <span class="text-[9px] font-extrabold px-1 rounded bg-white/80 text-slate-700">P.${escaparHtml(it.prioridade.romano)}</span>
+              </div>
               <div class="font-semibold truncate max-w-[140px]">${escaparHtml(it.nome)}</div>
               <div class="text-[10px] opacity-80">${it.bloco.sala ? escaparHtml(it.bloco.sala) : `${escaparHtml(it.bloco.inicio)} (${it.bloco.aulas}a)`}</div>
               <div class="text-[10px] italic truncate max-w-[140px]">${escaparHtml(it.professores)}</div>
@@ -1957,13 +2099,18 @@
       const bannerRef = document.getElementById('bannerReferenciaHorarios');
       const textoRef = document.getElementById('textoReferenciaHorarios');
       const btnBuscadorHeader = document.getElementById('btnAbrirBuscadorHorario');
+      const selFaseReg = document.getElementById('selectFaseRegularAluno');
+
+      if (selFaseReg) {
+        selFaseReg.value = faseRegularAluno ? String(faseRegularAluno) : '';
+      }
 
       if (ofertasTurmasCache.length > 0) {
         if (btnBuscadorHeader) btnBuscadorHeader.classList.remove('hidden');
         if (bannerRef && textoRef) {
           bannerRef.classList.remove('hidden');
           const labelSem = semestreReferenciaTurmas || '2027.1';
-          textoRef.innerHTML = `📅 Usando os horários e professores de <strong>${escaparHtml(labelSem)}</strong> como base (todas as turmas da disciplina disponíveis). <strong>Aviso:</strong> para semestres futuros, os horários podem mudar antes da matrícula.`;
+          textoRef.innerHTML = `📅 Base de horários: <strong>${escaparHtml(labelSem)}</strong> · Prioridade de matrícula calculada pelo <strong>Art. 42 (Res. 17/CUn/97)</strong>.`;
         }
       } else {
         if (btnBuscadorHeader) btnBuscadorHeader.classList.add('hidden');
@@ -1973,7 +2120,6 @@
       const disciplinas = cursoAtual.disciplinas || [];
       const metaOptHa = Number(cursoAtual?.complementares?.optativas_ha || 0);
       const optHaJaFeita = optativasConcluidas.reduce((acc, o) => acc + Number(o.ha || 0), 0);
-      const codCursoAluno = String(cursoAtual?.curso_codigo || '').trim();
 
       let acumulado = new Set(aprovadas);
       let optHaAcumulada = optHaJaFeita;
@@ -1986,7 +2132,7 @@
         const aulasObr = disciplinas.filter(d => sem.materias.includes(d.codigo)).reduce((a, b) => a + b.aulas, 0);
         const aulasTotais = aulasObr + Math.round(optHaSem / 18);
 
-        const choquesMap = detectarChoquesNoSemestre(sem);
+        const choquesMap = detectarChoquesNoSemestre(sem, idx);
         const totalChoques = Object.keys(choquesMap).length;
 
         const disponiveis = disciplinas.filter(d => {
@@ -2011,28 +2157,34 @@
 
         const listaHtml = disponiveis.map(d => {
           const marcada = sem.materias.includes(d.codigo);
-          const turmasDisc = marcada ? buscarTurmasDaDisciplina(d.codigo) : [];
+          const turmasDisc = marcada ? buscarTurmasDaDisciplina(d.codigo, idx) : [];
           const turmaSelecionadaCod = sem.turmas[d.codigo] || '';
           const turmaSelecionadaObj = turmasDisc.find(t => t.turma === turmaSelecionadaCod);
+          const prioSelecionada = turmaSelecionadaObj ? calcularPrioridadeMatricula(turmaSelecionadaObj, idx) : null;
           const choquesDesta = choquesMap[d.codigo] || [];
 
           let seletorTurmaHtml = '';
           if (marcada && turmasDisc.length > 0) {
             const optionsTurma = turmasDisc.map(t => {
-              const ehCursoAluno = t.curso_reserva === codCursoAluno || t.turma.includes(codCursoAluno);
-              const tagCurso = ehCursoAluno ? '★ ' : (t.curso_reserva ? `[C.${t.curso_reserva}] ` : '');
+              const prio = calcularPrioridadeMatricula(t, idx);
+              const estrela = prio.nivel <= 5 ? '★ ' : '';
+              const vagasOpt = t.vagas !== null && t.vagas !== undefined ? ` · ${t.vagas}v` : '';
               const resumoHor = formatarResumoHorarioTurma(t);
               const profTxt = t.professores.length > 0 ? t.professores.join(' / ') : 'Prof. a definir';
-              return `<option value="${escaparHtml(t.turma)}" ${t.turma === turmaSelecionadaCod ? 'selected' : ''}>${tagCurso}T.${escaparHtml(t.turma)} · ${escaparHtml(resumoHor)} · ${escaparHtml(profTxt)}</option>`;
+              return `<option value="${escaparHtml(t.turma)}" ${t.turma === turmaSelecionadaCod ? 'selected' : ''}>${estrela}[P.${prio.romano}] T.${escaparHtml(t.turma)}${vagasOpt} · ${escaparHtml(resumoHor)} · ${escaparHtml(profTxt)}</option>`;
             }).join('');
 
             seletorTurmaHtml = `
-              <div onclick="event.stopPropagation()" class="mt-2 pt-2 border-t border-indigo-400/40 space-y-1">
+              <div onclick="event.stopPropagation()" class="mt-2 pt-2 border-t border-indigo-400/40 space-y-1.5">
                 <select onchange="selecionarTurmaSemestre(${idx}, '${d.codigo}', this.value)" aria-label="Escolher turma de ${d.codigo}" class="w-full text-[11px] rounded-md px-2 py-1 bg-white text-slate-800 border border-indigo-200 focus:outline-none">
                   <option value="">Escolher turma / horário (${turmasDisc.length} opções)...</option>
                   ${optionsTurma}
                 </select>
-                ${turmaSelecionadaObj ? `
+                ${turmaSelecionadaObj && prioSelecionada ? `
+                  <div class="flex flex-wrap items-center justify-between gap-1">
+                    <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded border ${prioSelecionada.corBadge}">${escaparHtml(prioSelecionada.label)} · ${escaparHtml(prioSelecionada.detalhe)}</span>
+                    ${turmaSelecionadaObj.vagas !== null && turmaSelecionadaObj.vagas !== undefined ? `<span class="text-[10px] text-indigo-100 font-semibold">${turmaSelecionadaObj.vagas} vagas</span>` : ''}
+                  </div>
                   <div class="text-[10px] text-indigo-100 leading-tight">
                     <div>🕒 ${escaparHtml(formatarResumoHorarioTurma(turmaSelecionadaObj))}</div>
                     <div class="truncate">👨‍🏫 ${escaparHtml(turmaSelecionadaObj.professores.join(', ') || 'A definir')}</div>
@@ -2069,16 +2221,18 @@
         const optativasEncaixadasNoSemestre = sem.materias.filter(cod => !disciplinas.some(d => d.codigo === cod));
         const optativasEncaixadasHtml = optativasEncaixadasNoSemestre.map(cod => {
           const turmaSelecionadaCod = sem.turmas[cod] || '';
-          const turmaObj = buscarTurmasDaDisciplina(cod).find(t => t.turma === turmaSelecionadaCod);
+          const turmaObj = buscarTurmasDaDisciplina(cod, idx).find(t => t.turma === turmaSelecionadaCod);
+          const prio = turmaObj ? calcularPrioridadeMatricula(turmaObj, idx) : null;
           const choquesDesta = choquesMap[cod] || [];
           return `
-            <div onclick="toggleMateriaSemestre(${idx}, '${cod}')" class="cursor-pointer p-2.5 rounded-lg border text-xs transition ${choquesDesta.length > 0 ? 'bg-rose-700 text-white border-rose-700' : 'bg-indigo-600 text-white border-indigo-600'} font-semibold">
+            <div onclick="toggleMateriaSemestre(${idx}, '${cod}')" class="cursor-pointer p-2.5 rounded-lg border text-xs transition ${choquesDesta.length > 0 ? 'bg-rose-700 text-white border-rose-700' : 'bg-indigo-600 text-white border-indigo-600'} font-semibold space-y-1">
               <div class="flex justify-between">
                 <span>${escaparHtml(cod)} · Optativa</span>
                 <span>T.${escaparHtml(turmaSelecionadaCod)}</span>
               </div>
-              ${turmaObj ? `<div class="text-[10px] text-indigo-100 mt-1">🕒 ${escaparHtml(formatarResumoHorarioTurma(turmaObj))}</div>` : ''}
-              ${choquesDesta.length > 0 ? `<div class="text-[10px] font-bold bg-rose-600 text-white px-2 py-0.5 rounded mt-1">⚠️ Choque com ${escaparHtml(choquesDesta.join(', '))}</div>` : ''}
+              ${prio ? `<span class="inline-block text-[10px] font-extrabold px-1.5 py-0.5 rounded border ${prio.corBadge}">${escaparHtml(prio.label)} · ${escaparHtml(prio.detalhe)}</span>` : ''}
+              ${turmaObj ? `<div class="text-[10px] text-indigo-100">🕒 ${escaparHtml(formatarResumoHorarioTurma(turmaObj))}</div>` : ''}
+              ${choquesDesta.length > 0 ? `<div class="text-[10px] font-bold bg-rose-600 text-white px-2 py-0.5 rounded">⚠️ Choque com ${escaparHtml(choquesDesta.join(', '))}</div>` : ''}
             </div>
           `;
         }).join('');
@@ -2115,7 +2269,7 @@
           : '';
 
         return `
-          <div class="min-w-[315px] max-w-[315px] bg-white rounded-xl ${bordaCard} p-4 flex flex-col max-h-[68vh]">
+          <div class="min-w-[320px] max-w-[320px] bg-white rounded-xl ${bordaCard} p-4 flex flex-col max-h-[68vh]">
             ${tagFormatura}
             <div class="flex items-center justify-between pb-2 mb-3 border-b border-slate-100 gap-2">
               <div>
@@ -2402,6 +2556,9 @@
       descontoCupomPct = 0;
 
       aprovadas = new Set();
+      reprovadasFS = new Set();
+      reprovadasFI = new Set();
+      faseRegularAluno = null;
       optativasConcluidas = [];
       semestresPlanejados = [];
       ofertasTurmasCache = [];
@@ -2703,7 +2860,7 @@
     }
 
     // =========================================================================
-    // IMPORTAÇÃO AUTOMÁTICA DO HISTÓRICO ESCOLAR UFSC/CAGR (PRO)
+    // IMPORTAÇÃO AUTOMÁTICA DO HISTÓRICO ESCOLAR UFSC/CAGR (PRO · 100% LOCAL)
     // =========================================================================
     function abrirModalEnvioHistorico() {
       if (!usuarioAtual) {
@@ -2753,6 +2910,8 @@
 
         let textoCompleto = '';
         const codigosAprovadosPdf = new Set();
+        const codigosReprovadosFSPdf = new Set();
+        const codigosReprovadosFIPdf = new Set();
 
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
@@ -2795,16 +2954,18 @@
           }
         }
 
-        const regexDisc = /([A-Z]{3}\d{4})\b([\s\S]{1,240}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
-        let match;
+        // Identifica semestre de ingresso e total de semestres cursados para estimar a fase regular
+        const semestresPdf = [...new Set((textoCompleto.match(/Semestre\s+(20\d{2}\/[12])/gi) || []).map(s => s.replace(/Semestre\s+/i, '')))].sort();
+        if (semestresPdf.length > 0) {
+          const maxFasesCurso = Math.max(10, ...((cursoAtual?.disciplinas || []).map(d => Number(d.fase || 0))));
+          const faseEstimada = Math.min(maxFasesCurso, semestresPdf.length + 1);
+          faseRegularAluno = faseEstimada;
+        }
 
-        while ((match = regexDisc.exec(textoCompleto)) !== null) {
-          const codigo = match[1];
-          const trecho = match[2];
-
-          if (/\bFI\b/.test(trecho)) continue;
-
+        const avaliarTrechoHistorico = (codigo, trecho) => {
+          const temFI = /\bFI\b/.test(trecho);
           const temFS = /\bFS\b/.test(trecho);
+          const temCancelamento = /\b(C|T|TR)\b/.test(trecho);
           const temValidacao = /\b(V|R|Rv)\b/.test(trecho);
 
           const notasMatch = trecho.match(/\b(10(?:[.,]0)?|[0-9][.,]\d)\b/g);
@@ -2815,7 +2976,18 @@
 
           if ((temFS && notaAprovada) || temValidacao) {
             codigosAprovadosPdf.add(codigo);
+          } else if (temFI) {
+            codigosReprovadosFIPdf.add(codigo);
+          } else if (temFS || temCancelamento) {
+            codigosReprovadosFSPdf.add(codigo);
           }
+        };
+
+        const regexDisc = /([A-Z]{3}\d{4})\b([\s\S]{1,240}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
+        let match;
+
+        while ((match = regexDisc.exec(textoCompleto)) !== null) {
+          avaliarTrechoHistorico(match[1], match[2]);
         }
 
         const fallbackGlobal = [];
@@ -2832,23 +3004,17 @@
         const textoLinear = fallbackGlobal.join('\n');
         const regexFallback = /([A-Z]{3}\d{4})\b([\s\S]{1,120}?)(?=\b[A-Z]{3}\d{4}\b|IA\s*[-–]?\s*[\d,]|Semestre\s+20\d{2}|Observa[çc][ãa]o:|$)/g;
         while ((match = regexFallback.exec(textoLinear)) !== null) {
-          const codigo = match[1];
-          if (codigosAprovadosPdf.has(codigo)) continue;
-          const trecho = match[2];
-          if (/\bFI\b/.test(trecho)) continue;
-          const temFS = /\bFS\b/.test(trecho);
-          const temValidacao = /\b(V|R|Rv)\b/.test(trecho);
-          const notasMatch = trecho.match(/\b(10(?:[.,]0)?|[0-9][.,]\d)\b/g);
-          const notaAprovada = notasMatch ? notasMatch.some(n => parseFloat(n.replace(',', '.')) >= 6.0) : false;
-          if ((temFS && notaAprovada) || temValidacao) {
-            codigosAprovadosPdf.add(codigo);
-          }
+          avaliarTrechoHistorico(match[1], match[2]);
         }
 
         if (!cursoAtual) {
           alert('Selecione um curso antes de importar o histórico.');
           return;
         }
+
+        // Atualiza listas locais de reprovações (removendo matérias em que o aluno já foi aprovado depois)
+        reprovadasFS = new Set([...codigosReprovadosFSPdf].filter(c => !codigosAprovadosPdf.has(c) && !aprovadas.has(c)));
+        reprovadasFI = new Set([...codigosReprovadosFIPdf].filter(c => !codigosAprovadosPdf.has(c) && !aprovadas.has(c)));
 
         const obrigatoriasCurso = new Set((cursoAtual.disciplinas || []).map(d => d.codigo));
         let novasMarcadas = 0;
@@ -2868,7 +3034,6 @@
           }
         }
 
-        // Cruza também as disciplinas optativas aprovadas no PDF com o catálogo
         const mapaOptativasConhecidas = new Map();
         catalogoCurriculos.forEach(c => {
           (c.optativas || []).forEach(o => {
@@ -2903,7 +3068,8 @@
         renderizarGrade();
         renderizarOptativas();
 
-        alert(`✅ Histórico lido com sucesso!\n\n• ${codigosAprovadosPdf.size} disciplinas aprovadas identificadas no PDF.\n• ${novasMarcadas} novas obrigatórias marcadas na grade.\n• ${novasOptativasMarcadas} nova(s) optativa(s) contabilizada(s).`);
+        const resumoFaseTxt = faseRegularAluno ? `\n• Fase regular estimada para prioridade (Art. 42): ${faseRegularAluno}ª fase.` : '';
+        alert(`✅ Histórico lido com sucesso!\n\n• ${codigosAprovadosPdf.size} disciplinas aprovadas identificadas no PDF.\n• ${novasMarcadas} novas obrigatórias marcadas na grade.\n• ${novasOptativasMarcadas} nova(s) optativa(s) contabilizada(s).${resumoFaseTxt}`);
       } catch (err) {
         console.error(err);
         alert('Não foi possível ler este PDF. Verifique se é o PDF original do Histórico Escolar emitido pelo CAGR/UFSC.');
