@@ -200,6 +200,7 @@
             <option value="8">8ª Fase</option>
             <option value="9">9ª Fase</option>
             <option value="10">10ª Fase</option>
+            <option value="11">10+ (10ª Fase ou mais)</option>
           </select>
         </div>
       </div>
@@ -1387,6 +1388,19 @@
       renderizarPlanejador();
     }
 
+    function alternarReprovacaoFS(codigoDisciplina) {
+      const cod = String(codigoDisciplina || '').trim().toUpperCase();
+      if (!cod) return;
+      if (reprovadasFS.has(cod)) {
+        reprovadasFS.delete(cod);
+      } else {
+        reprovadasFS.add(cod);
+        reprovadasFI.delete(cod);
+      }
+      salvarProgresso();
+      renderizarPlanejador();
+    }
+
     function calcularPrioridadeMatricula(turmaObj, semIdx = 0) {
       const codDisc = turmaObj.disciplina_codigo;
       const codCursoAluno = String(cursoAtual?.curso_codigo || '').trim();
@@ -2163,7 +2177,17 @@
           const prioSelecionada = turmaSelecionadaObj ? calcularPrioridadeMatricula(turmaSelecionadaObj, idx) : null;
           const choquesDesta = choquesMap[d.codigo] || [];
 
-          let seletorTurmaHtml = '';
+          const jaReprovouFS = reprovadasFS.has(d.codigo);
+          const btnToggleReprovacao = marcada ? `
+            <div onclick="event.stopPropagation()" class="mt-2 pt-2 border-t border-indigo-400/40 flex items-center justify-between gap-2">
+              <span class="text-[10px] text-indigo-100">Histórico na matéria:</span>
+              <button type="button" onclick="alternarReprovacaoFS('${d.codigo}')" class="text-[10px] font-bold px-2 py-0.5 rounded transition ${jaReprovouFS ? 'bg-amber-400 text-slate-900 hover:bg-amber-300' : 'bg-indigo-800/70 text-indigo-100 hover:bg-indigo-900'}">
+                ${jaReprovouFS ? '⚠️ Já reprovei (FS)' : '✓ 1ª vez (Sem reprov.)'}
+              </button>
+            </div>
+          ` : '';
+
+          let seletorTurmaHtml = btnToggleReprovacao;
           if (marcada && turmasDisc.length > 0) {
             const optionsTurma = turmasDisc.map(t => {
               const prio = calcularPrioridadeMatricula(t, idx);
@@ -2174,8 +2198,8 @@
               return `<option value="${escaparHtml(t.turma)}" ${t.turma === turmaSelecionadaCod ? 'selected' : ''}>${estrela}[P.${prio.romano}] T.${escaparHtml(t.turma)}${vagasOpt} · ${escaparHtml(resumoHor)} · ${escaparHtml(profTxt)}</option>`;
             }).join('');
 
-            seletorTurmaHtml = `
-              <div onclick="event.stopPropagation()" class="mt-2 pt-2 border-t border-indigo-400/40 space-y-1.5">
+            seletorTurmaHtml = btnToggleReprovacao + `
+              <div onclick="event.stopPropagation()" class="mt-1.5 space-y-1.5">
                 <select onchange="selecionarTurmaSemestre(${idx}, '${d.codigo}', this.value)" aria-label="Escolher turma de ${d.codigo}" class="w-full text-[11px] rounded-md px-2 py-1 bg-white text-slate-800 border border-indigo-200 focus:outline-none">
                   <option value="">Escolher turma / horário (${turmasDisc.length} opções)...</option>
                   ${optionsTurma}
